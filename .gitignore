@@ -1,0 +1,41 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.bak_*
+
+# Local environments and secrets
+.venv/
+venv/
+env/
+*.env
+.env
+
+# IDE/editor metadata
+.idea/
+.vscode/
+*.iml
+
+# Datasets, packet captures, logs, and generated experiment data
+data/
+logs_benign/
+logs_malware/
+dataset_final.tar.gz
+*.pcap
+*.log
+*.csv
+*.jsonl.gz
+*.csv.gz
+
+# Model artifacts
+checkpoints/
+*.pt
+*.pth
+*.pkl
+
+# Generated reports
+agent_reporter/outputs/
+
+# OS noise
+Thumbs.db
+desktop.ini

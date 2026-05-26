@@ -1,0 +1,101 @@
+import argparse
+import csv
+import glob
+import os
+
+
+def parse_vector_int(raw: str):
+    if raw in {"", "-", "(empty)"}:
+        return None
+    try:
+        return [int(x) for x in raw.split(",")]
+    except Exception:
+        return None
+
+
+def parse_vector_float(raw: str):
+    if raw in {"", "-", "(empty)"}:
+        return None
+    try:
+        return [float(x) for x in raw.split(",")]
+    except Exception:
+        return None
+
+
+def convert_one_log(log_path: str, out_csv: str, app_label: str, min_packets: int, max_len: int):
+    saved = 0
+    skipped = 0
+    src_name = os.path.basename(log_path)
+
+    with open(log_path, "r", encoding="utf-8", errors="ignore") as fin, open(
+        out_csv, "w", encoding="utf-8", newline=""
+    ) as fout:
+        writer = csv.DictWriter(fout, fieldnames=["PPI", "APP", "SOURCE"])
+        writer.writeheader()
+
+        for line in fin:
+            if not line or line.startswith("#"):
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 8:
+                skipped += 1
+                continue
+
+            sizes = parse_vector_int(parts[6])
+            iats = parse_vector_float(parts[7])
+            if sizes is None or iats is None:
+                skipped += 1
+                continue
+
+            seq_len = min(len(sizes), len(iats), max_len)
+            if seq_len < min_packets:
+                skipped += 1
+                continue
+
+            sizes = sizes[:seq_len]
+            iats = iats[:seq_len]
+            dirs = [1.0 if s > 0 else -1.0 if s < 0 else 0.0 for s in sizes]
+            abs_sizes = [float(abs(s)) for s in sizes]
+
+            ppi = [iats, dirs, abs_sizes]
+            writer.writerow({"PPI": str(ppi), "APP": app_label, "SOURCE": src_name})
+            saved += 1
+
+    return saved, skipped
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Convert Zeek/MineShark logs to CESNET-like PPI CSV files.")
+    parser.add_argument("--log-dir", type=str, required=True)
+    parser.add_argument("--out-dir", type=str, required=True)
+    parser.add_argument("--app-label", type=str, default="unknown")
+    parser.add_argument("--min-packets", type=int, default=3)
+    parser.add_argument("--max-len", type=int, default=30)
+    args = parser.parse_args()
+
+    os.makedirs(args.out_dir, exist_ok=True)
+    total_saved = 0
+    total_skipped = 0
+
+    log_files = sorted(glob.glob(os.path.join(args.log_dir, "*.log")))
+    if not log_files:
+        raise FileNotFoundError(f"No .log files found in {args.log_dir}")
+
+    for log_path in log_files:
+        out_csv = os.path.join(args.out_dir, os.path.basename(log_path).replace(".log", "_ppi.csv"))
+        saved, skipped = convert_one_log(
+            log_path=log_path,
+            out_csv=out_csv,
+            app_label=args.app_label,
+            min_packets=args.min_packets,
+            max_len=args.max_len,
+        )
+        total_saved += saved
+        total_skipped += skipped
+        print(f"[OK] {os.path.basename(log_path)} -> {out_csv}, saved={saved}, skipped={skipped}")
+
+    print(f"[DONE] total_saved={total_saved}, total_skipped={total_skipped}")
+
+
+if __name__ == "__main__":
+    main()
