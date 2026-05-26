@@ -59,6 +59,12 @@ For package-style usage during development:
 pip install -e .
 ```
 
+The default install is for the sidecar Agent path and does not install PyTorch. Install ML dependencies only when training or rerunning model inference:
+
+```powershell
+pip install -e ".[ml]"
+```
+
 Training dependency details are documented in:
 
 ```text

@@ -41,6 +41,23 @@ MINESHARK_AI_ALERTS_PATH=/var/log/ai_alerts.json
 
 `WAZUH_VERIFY_SSL=false` 只适合本地一体化/自签名证书环境。正式环境应配置 CA 并开启校验。
 
+## 安装依赖
+
+旁路 Agent 默认只读取 `/var/log/ai_alerts.json`，不重新运行模型，因此默认安装不会安装 PyTorch：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+pip install -e .
+```
+
+只有需要训练模型或使用 `--rerun-model` 重新推理时，才安装机器学习依赖：
+
+```bash
+pip install -e ".[ml]"
+```
+
 ## 构建 RAG 索引
 
 ```bash

@@ -1,21 +1,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-import torch
 
 from mineshark.config import RuntimeConfig, resolve_project_path
 from mineshark.integrations.wazuh import WazuhServerClient, query_alerts_with_fallback
 from mineshark.rag.embeddings import QwenEmbeddingClient
 from mineshark.rag.store import FaissKnowledgeStore
-from mineshark.reporting.agent_audit import (
-    infer_events,
-    load_model,
-    parse_mineshark_events,
-    risk_counts,
-)
 from mineshark.sensors.ai_alerts import query_mineshark_ai_alerts as read_mineshark_ai_alerts
 from mineshark.sensors.logs import query_suricata_alerts, query_zeek_context
 
@@ -91,6 +82,15 @@ class AgentToolbox:
         selected_max_events = _safe_limit(max_events or self.max_events, self.max_events, 50)
 
         try:
+            import torch
+
+            from mineshark.reporting.agent_audit import (
+                infer_events,
+                load_model,
+                parse_mineshark_events,
+                risk_counts,
+            )
+
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model, model_config = load_model(checkpoint_path, device)
             raw_events = parse_mineshark_events(
