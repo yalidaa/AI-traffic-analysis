@@ -7,17 +7,32 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import requests
-import torch
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
-from mineshark.models.traffic_transformer import TrafficTransformer
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_KNOWLEDGE_PATH = PROJECT_ROOT / "configs" / "reporting" / "security_playbook.jsonl"
 DEFAULT_OUTPUT_JSON = PROJECT_ROOT / "outputs" / "reports" / "audit_report.json"
 DEFAULT_OUTPUT_MD = PROJECT_ROOT / "outputs" / "reports" / "audit_report.md"
+
+
+def default_device() -> str:
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def require_ml_dependencies():
+    try:
+        import torch
+        from mineshark.models.traffic_transformer import TrafficTransformer
+    except ImportError as exc:
+        raise SystemExit(
+            "The legacy Transformer report requires optional ML dependencies. "
+            "Install them with: pip install -e '.[ml]'"
+        ) from exc
+    return torch, TrafficTransformer
 
 
 def resolve_path(path: str) -> Path:
@@ -152,7 +167,8 @@ def parse_mineshark_events(
     return events
 
 
-def load_model(checkpoint_path: Path, device: torch.device):
+def load_model(checkpoint_path: Path, device):
+    torch, TrafficTransformer = require_ml_dependencies()
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint.get("config", {})
     max_pkt_size = int(config.get("max_pkt_size", 2000))
@@ -173,7 +189,8 @@ def load_model(checkpoint_path: Path, device: torch.device):
     return model, config
 
 
-def infer_events(model, events: List[Dict], device: torch.device, batch_size: int) -> List[Dict]:
+def infer_events(model, events: List[Dict], device, batch_size: int) -> List[Dict]:
+    torch, _ = require_ml_dependencies()
     scored = []
     with torch.no_grad():
         for start in range(0, len(events), batch_size):
@@ -244,6 +261,9 @@ def event_query(event: Dict) -> str:
 
 
 def retrieve_knowledge(events: List[Dict], knowledge: List[Dict], top_k: int) -> List[Dict]:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+
     if not events or not knowledge or top_k <= 0:
         return []
 
@@ -429,7 +449,7 @@ def main():
     parser.add_argument("--max-len", type=int, default=None)
     parser.add_argument("--max-pkt-size", type=int, default=None)
     parser.add_argument("--max-iat", type=float, default=None)
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", default=default_device())
     parser.add_argument("--no-llm", action="store_true", help="Generate a rule-based report without DeepSeek.")
     parser.add_argument("--llm-timeout", type=int, default=60)
     args = parser.parse_args()
@@ -439,6 +459,7 @@ def main():
     knowledge_file = resolve_path(args.knowledge_file)
     output_json = resolve_path(args.output_json)
     output_md = resolve_path(args.output_md)
+    torch, _ = require_ml_dependencies()
     device = torch.device(args.device)
 
     model, config = load_model(checkpoint_path, device)
