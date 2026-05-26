@@ -2,6 +2,12 @@
 
 本阶段新增一个 CLI 安全研判 Agent，用于旁路读取虚拟机中已经运行的 MineShark 实时 AI 告警，并把 Wazuh 告警、Zeek/Suricata 日志和安全知识库检索整合成中文研判报告。
 
+## 分支定位
+
+`demo_jianli` 分支专门用于 Linux 虚拟机实验环境中的安全研判链路验证。该分支面向 Wazuh 一体化部署、Zeek、Suricata 和 MineShark 实时 AI 告警的联动场景，默认路径、安装方式和运行命令均以 Linux VM 为准。
+
+Windows 主机主要用于代码开发、提交和同步；实际运行、RAG 索引构建、Wazuh/Zeek/Suricata 日志读取和 Agent 报告生成应在 Linux VM 中完成。
+
 ## 已有 VM 环境
 
 ```text
