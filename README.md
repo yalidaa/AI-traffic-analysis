@@ -1,204 +1,154 @@
-# TrafficDetection_LLM
+# MineShark Traffic Analysis
 
-## Project Snapshot
+MineShark is a Python/PyTorch prototype for encrypted traffic analysis. It trains a Transformer-based binary classifier for `benign` vs `malware` traffic using packet-level metadata such as packet sizes, directions, and inter-arrival times. It also includes a lightweight security report generator that turns model predictions and traffic context into JSON/Markdown audit reports.
 
-This project trains a PyTorch-based traffic detection model for benign vs malware classification.
-The current codebase supports two input formats:
+The project is organized as a conventional Python package under `src/`, with command wrappers in `scripts/` and local runtime artifacts kept out of Git.
 
-- `log`: Zeek/MineShark-style `.pcap.log` files
-- `ppi`: CSV/JSONL files containing packet-level `PPI` sequences
+## Project Layout
 
-The main training entrypoint is:
+```text
+.
+├── configs/                 # Environment, reporting, and future experiment configs
+├── docs/                    # Project notes, dependency docs, reporting docs
+├── src/mineshark/           # Main Python package
+│   ├── data/                # Dataset loading and data preparation utilities
+│   ├── models/              # Model definitions
+│   ├── training/            # Training loop and losses
+│   └── reporting/           # Audit report generation
+├── scripts/                 # Thin CLI wrappers for common tasks
+│   ├── data/
+│   ├── report/
+│   └── train/
+├── datasets/                # Local datasets and converted features, ignored by Git
+├── checkpoints/             # Local model weights, ignored by Git
+└── outputs/                 # Generated reports and experiment outputs, ignored by Git
+```
 
-- [train_ai.py](C:/Users/29065/Desktop/TrafficDetection_LLM/train_ai.py)
+## Core Data Roles
 
-## Datasets Actually Used In This Project
+Local data is expected under `datasets/`:
 
-### 1. USTC-TFC2016-derived Local Log Corpus
+```text
+datasets/raw/logs_benign/
+datasets/raw/logs_malware/
+datasets/raw/mta/
+datasets/processed/cesnet_ppi/
+datasets/experiments/
+```
 
-Role:
-- Main in-domain training corpus
-- Contains both benign and malware traffic
+These files are intentionally ignored by Git because they contain datasets, packet captures, converted CSVs, and large generated artifacts.
 
-Local files:
-- [logs_benign](C:/Users/29065/Desktop/TrafficDetection_LLM/logs_benign)
-- [logs_malware](C:/Users/29065/Desktop/TrafficDetection_LLM/logs_malware)
+## Install
 
-Benign examples:
-- `Gmail.pcap.log`
-- `MySQL.pcap.log`
-- `Outlook.pcap.log`
-- `Weibo-2.pcap.log`
+For the current Windows training machine, the Conda environment snapshot is:
 
-Malware examples:
-- `Cridex.pcap.log`
-- `Miuref.pcap.log`
-- `Virut.pcap.log`
-- `Zeus.pcap.log`
+```text
+configs/env/traffic_env.yaml
+```
 
-Format:
-- Zeek/MineShark-style processed log files
+To recreate it:
 
-Used by:
-- `train_ai.py --data-format log`
+```powershell
+conda env create -f configs/env/traffic_env.yaml
+conda activate traffic_env
+```
 
-Status:
-- Confirmed used in multiple training runs
+For package-style usage during development:
 
-### 2. CESNET-TLS-Year22 (XS) PPI Benign Dataset
+```powershell
+pip install -e .
+```
 
-Role:
-- Public benign corpus for PPI-based experiments
+Training dependency details are documented in:
 
-Local file:
-- [data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv](C:/Users/29065/Desktop/TrafficDetection_LLM/data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv)
+```text
+docs/training_dependencies.md
+```
 
-Source:
-- Exported through `cesnet-datazoo`
-- Produced by [prepare_cesnet_benign.py](C:/Users/29065/Desktop/TrafficDetection_LLM/prepare_cesnet_benign.py)
+## Training
 
-Format:
-- CSV with `PPI` field
+Run from the project root:
 
-Status:
-- Confirmed downloaded, exported, and used in smoke/ppi experiments
+```powershell
+python .\scripts\train\train_model.py --experiment latest
+```
 
-### 3. Local Malware PPI Dataset Converted From Existing Malware Logs
+Useful presets currently defined in `src/mineshark/training/train.py`:
 
-Role:
-- Malware side of the PPI binary classification setup
+```text
+base
+latest
+cross_domain
+ppi_local_latest
+ppi_hybrid_latest
+custom
+```
 
-Local files:
-- [data/cesnet_ppi/malware](C:/Users/29065/Desktop/TrafficDetection_LLM/data/cesnet_ppi/malware)
+Example local PPI experiment:
 
-Contained files:
-- `Cridex.pcap_ppi.csv`
-- `Miuref.pcap_ppi.csv`
-- `Virut.pcap_ppi.csv`
-- `Zeus.pcap_ppi.csv`
+```powershell
+python .\scripts\train\train_model.py --experiment ppi_local_latest
+```
 
-Source:
-- Converted from local malware log files by [prepare_malware_ppi_from_logs.py](C:/Users/29065/Desktop/TrafficDetection_LLM/prepare_malware_ppi_from_logs.py)
+Model checkpoints are written to `checkpoints/` and are ignored by Git.
 
-Format:
-- CSV with `PPI` field
+## Data Preparation
 
-Status:
-- Confirmed used together with CESNET benign PPI data
+Convert MineShark/Zeek-style logs to PPI CSV:
 
-### 4. MTA 2026 Incremental Malware Samples
+```powershell
+python .\scripts\data\prepare_ppi_from_logs.py `
+  --log-dir datasets/raw/logs_benign `
+  --out-dir datasets/experiments/ppi/local_benign `
+  --app-label benign
+```
 
-Role:
-- Incremental malware samples for expansion experiments
+Prepare the base/latest/hybrid experiment folders:
 
-Local raw pcaps:
-- [data/mta/raw](C:/Users/29065/Desktop/TrafficDetection_LLM/data/mta/raw)
+```powershell
+python .\scripts\data\prepare_experiment_data.py
+```
 
-Local parsed logs:
-- [data/mta/logs_new_malware](C:/Users/29065/Desktop/TrafficDetection_LLM/data/mta/logs_new_malware)
+Safety note: this script no longer clears existing non-empty output directories automatically. If an experiment folder already contains files, move or manually clean it first.
 
-Examples:
-- `2026-01-31-traffic-analysis-exercise.pcap`
-- `2026-02-28-traffic-analysis-exercise.pcap`
-- matching `.pcap.log` files
+Export CESNET benign PPI data:
 
-Format:
-- Raw PCAP plus converted log files
+```powershell
+python .\scripts\data\prepare_cesnet_benign.py --data-root D:\path\to\cesnet-cache
+```
 
-Status:
-- Confirmed deployed locally
-- Confirmed used in incremental malware experiments
+## Reporting
 
-## Datasets Confirmed To Exist Locally
+Generate a rule-based audit report from a trained checkpoint:
 
-### Raw / original-style data present locally
+```powershell
+python .\scripts\report\generate_audit_report.py `
+  --checkpoint checkpoints/main_in_domain.pt `
+  --log-file datasets/raw/logs_malware/Zeus.pcap.log `
+  --max-events 5 `
+  --no-llm
+```
 
-- [logs_benign](C:/Users/29065/Desktop/TrafficDetection_LLM/logs_benign)
-- [logs_malware](C:/Users/29065/Desktop/TrafficDetection_LLM/logs_malware)
-- [data/mta/raw](C:/Users/29065/Desktop/TrafficDetection_LLM/data/mta/raw)
+Reports are written to:
 
-### Converted training data present locally
+```text
+outputs/reports/
+```
 
-- [data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv](C:/Users/29065/Desktop/TrafficDetection_LLM/data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv)
-- [data/cesnet_ppi/malware](C:/Users/29065/Desktop/TrafficDetection_LLM/data/cesnet_ppi/malware)
-- [data/mta/logs_new_malware](C:/Users/29065/Desktop/TrafficDetection_LLM/data/mta/logs_new_malware)
+The local security knowledge base is:
 
-## Dataset Combinations Confirmed To Have Been Run
+```text
+configs/reporting/security_playbook.jsonl
+```
 
-### A. Local benign logs + local malware logs
+## Git Policy
 
-Format:
-- `log`
+The repository tracks source code, scripts, configs, and docs. It ignores:
 
-Meaning:
-- Main in-domain training setup
+- datasets and packet captures
+- generated PPI CSVs and logs
+- model checkpoints
+- report outputs
+- Python caches and IDE files
 
-Associated checkpoints:
-- [checkpoints/smoke_grouped.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/smoke_grouped.pt)
-- [checkpoints/main_in_domain.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/main_in_domain.pt)
-- [checkpoints/main_in_domain_v2.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/main_in_domain_v2.pt)
-
-### B. Local benign logs + MTA incremental malware logs
-
-Format:
-- `log`
-
-Meaning:
-- Incremental malware extension experiment
-
-Associated checkpoints:
-- [checkpoints/mta_incremental_smoke.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/mta_incremental_smoke.pt)
-- [checkpoints/main_with_mta.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/main_with_mta.pt)
-
-### C. CESNET benign PPI + local malware PPI
-
-Format:
-- `ppi`
-
-Meaning:
-- Cross-source PPI binary classification experiment
-
-Associated checkpoints:
-- [checkpoints/cesnet_tls22_plus_malware_smoke.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/cesnet_tls22_plus_malware_smoke.pt)
-- [checkpoints/cesnet_tls22_plus_malware.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/cesnet_tls22_plus_malware.pt)
-
-Notes:
-- `cesnet_tls22_plus_malware.pt` exists, but prior discussion suggests that run may have been affected by an earlier PPI parsing issue, so treat its result carefully.
-
-### D. Early main log-model checkpoint
-
-Associated checkpoint:
-- [checkpoints/deep_mineshark_best.pt](C:/Users/29065/Desktop/TrafficDetection_LLM/checkpoints/deep_mineshark_best.pt)
-
-Status:
-- Highly likely tied to the earlier local log-based training path
-- Exact run provenance is less certain than the checkpoints listed above
-
-## Code-Supported But Not Yet Confirmed As Locally Materialized
-
-### CESNET-QUIC22
-
-Status:
-- Supported by [prepare_cesnet_benign.py](C:/Users/29065/Desktop/TrafficDetection_LLM/prepare_cesnet_benign.py)
-- Not currently confirmed as an exported local dataset file in this project directory
-
-## Practical Summary
-
-Currently confirmed as actually used:
-- USTC-TFC2016-derived local log corpus
-- CESNET-TLS-Year22 (XS) benign PPI export
-- Local malware PPI converted from existing malware logs
-- MTA 2026 incremental malware samples
-
-Currently confirmed as locally deployed:
-- `logs_benign/*.log`
-- `logs_malware/*.log`
-- `data/mta/raw/*.pcap`
-- `data/mta/logs_new_malware/*.log`
-- `data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv`
-- `data/cesnet_ppi/malware/*.csv`
-
-Currently confirmed as already run:
-- `logs_benign + logs_malware`
-- `logs_benign + mta_logs_new_malware`
-- `cesnet_ppi_benign + cesnet_ppi_malware`
+This keeps the GitHub repository lightweight while preserving the local training workspace layout.

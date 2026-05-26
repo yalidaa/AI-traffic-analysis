@@ -36,7 +36,7 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["tls_year22", "quic22", "both"], default="tls_year22")
     parser.add_argument("--size", type=str, default="XS", choices=["XS", "S", "M", "L", "ORIG"])
     parser.add_argument("--train-size", type=int, default=300000, help="Number of train samples to export.")
-    parser.add_argument("--out-dir", type=str, default="data/cesnet_ppi/benign")
+    parser.add_argument("--out-dir", type=str, default="datasets/processed/cesnet_ppi/benign")
     args = parser.parse_args()
 
     if args.dataset in ("tls_year22", "both"):

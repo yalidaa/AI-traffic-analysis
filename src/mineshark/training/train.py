@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, classification_report, f1_score
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from dataset import (
+from mineshark.data.dataset import (
     TrafficDataset,
     cap_samples_per_source,
     load_samples_from_dirs,
@@ -18,18 +18,18 @@ from dataset import (
     split_samples,
     split_samples_by_source,
 )
-from loss import JointLoss
-from model import TrafficTransformer
+from mineshark.models.traffic_transformer import TrafficTransformer
+from mineshark.training.losses import JointLoss
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 EXPERIMENT_PRESETS = {
     "custom": {},
     "base": {
         "data_format": "log",
-        "malware_dir": "data/experiments/logs_malware_base",
-        "benign_dir": "logs_benign",
+        "malware_dir": "datasets/experiments/logs_malware_base",
+        "benign_dir": "datasets/raw/logs_benign",
         "save_path": "checkpoints/v_latest_ablation_base.pt",
         "split_mode": "by_source",
         "balanced_sampling": 1,
@@ -41,8 +41,8 @@ EXPERIMENT_PRESETS = {
     },
     "latest": {
         "data_format": "log",
-        "malware_dir": "logs_malware",
-        "benign_dir": "logs_benign",
+        "malware_dir": "datasets/raw/logs_malware",
+        "benign_dir": "datasets/raw/logs_benign",
         "save_path": "checkpoints/v_latest_main.pt",
         "split_mode": "by_source",
         "balanced_sampling": 1,
@@ -54,8 +54,8 @@ EXPERIMENT_PRESETS = {
     },
     "cross_domain": {
         "data_format": "ppi",
-        "malware_dir": "data/cesnet_ppi/malware",
-        "benign_dir": "data/cesnet_ppi/benign",
+        "malware_dir": "datasets/processed/cesnet_ppi/malware",
+        "benign_dir": "datasets/processed/cesnet_ppi/benign",
         "save_path": "checkpoints/v_latest_cross_domain.pt",
         "split_mode": "random",
         "balanced_sampling": 1,
@@ -64,8 +64,8 @@ EXPERIMENT_PRESETS = {
     },
     "ppi_local_latest": {
         "data_format": "ppi",
-        "malware_dir": "data/experiments/ppi/local_malware_latest",
-        "benign_dir": "data/experiments/ppi/local_benign",
+        "malware_dir": "datasets/experiments/ppi/local_malware_latest",
+        "benign_dir": "datasets/experiments/ppi/local_benign",
         "save_path": "checkpoints/v_latest_ppi_local.pt",
         "split_mode": "by_source",
         "balanced_sampling": 1,
@@ -74,8 +74,8 @@ EXPERIMENT_PRESETS = {
     },
     "ppi_hybrid_latest": {
         "data_format": "ppi",
-        "malware_dir": "data/experiments/ppi/local_malware_latest",
-        "benign_dir": "data/experiments/ppi/hybrid_benign",
+        "malware_dir": "datasets/experiments/ppi/local_malware_latest",
+        "benign_dir": "datasets/experiments/ppi/hybrid_benign",
         "save_path": "checkpoints/v_latest_ppi_hybrid.pt",
         "split_mode": "by_source",
         "balanced_sampling": 1,
@@ -396,7 +396,7 @@ def main(args, parser):
     )
 
 
-if __name__ == "__main__":
+def build_parser():
     parser = argparse.ArgumentParser(description="Train Deep-MineShark with Transformer + Triplet")
     parser.add_argument(
         "--experiment",
@@ -405,8 +405,8 @@ if __name__ == "__main__":
         default="custom",
         help="Named preset for base/latest/cross_domain experiments.",
     )
-    parser.add_argument("--malware-dir", type=str, default="C:/Users/29065/Desktop/TrafficDetection_LLM/logs_malware")
-    parser.add_argument("--benign-dir", type=str, default="C:/Users/29065/Desktop/TrafficDetection_LLM/logs_benign")
+    parser.add_argument("--malware-dir", type=str, default="datasets/raw/logs_malware")
+    parser.add_argument("--benign-dir", type=str, default="datasets/raw/logs_benign")
     parser.add_argument("--save-path", type=str, default="checkpoints/deep_mineshark_best.pt")
 
     parser.add_argument("--max-len", type=int, default=128)
@@ -446,5 +446,13 @@ if __name__ == "__main__":
         default=0,
         help="If > 0, cap each (label, source) bucket before splitting.",
     )
+    return parser
 
+
+def cli():
+    parser = build_parser()
     main(parser.parse_args(), parser)
+
+
+if __name__ == "__main__":
+    cli()

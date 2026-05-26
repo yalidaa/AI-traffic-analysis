@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,23 +11,19 @@ import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from model import TrafficTransformer
+from mineshark.models.traffic_transformer import TrafficTransformer
 
 
-DEFAULT_KNOWLEDGE_PATH = SCRIPT_DIR / "knowledge" / "security_playbook.jsonl"
-DEFAULT_OUTPUT_JSON = SCRIPT_DIR / "outputs" / "audit_report.json"
-DEFAULT_OUTPUT_MD = SCRIPT_DIR / "outputs" / "audit_report.md"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_KNOWLEDGE_PATH = PROJECT_ROOT / "configs" / "reporting" / "security_playbook.jsonl"
+DEFAULT_OUTPUT_JSON = PROJECT_ROOT / "outputs" / "reports" / "audit_report.json"
+DEFAULT_OUTPUT_MD = PROJECT_ROOT / "outputs" / "reports" / "audit_report.md"
 
 
 def resolve_path(path: str) -> Path:
     candidate = Path(path)
     if not candidate.is_absolute():
-        candidate = REPO_ROOT / candidate
+        candidate = PROJECT_ROOT / candidate
     return candidate.resolve()
 
 

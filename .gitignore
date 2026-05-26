@@ -17,23 +17,48 @@ env/
 *.iml
 
 # Datasets, packet captures, logs, and generated experiment data
-data/
-logs_benign/
-logs_malware/
-dataset_final.tar.gz
+datasets/*
+!datasets/.gitkeep
+!datasets/raw/
+datasets/raw/*
+!datasets/raw/.gitkeep
+!datasets/processed/
+datasets/processed/*
+!datasets/processed/.gitkeep
+!datasets/archives/
+datasets/archives/*
+!datasets/archives/.gitkeep
+!datasets/experiments/
+datasets/experiments/*
+!datasets/experiments/.gitkeep
 *.pcap
 *.log
 *.csv
+*.tar.gz
 *.jsonl.gz
 *.csv.gz
 
+# Legacy local data paths kept ignored after the project layout migration
+/data/
+/logs_benign/
+/logs_malware/
+/dataset_final.tar.gz
+
 # Model artifacts
-checkpoints/
+checkpoints/*
+!checkpoints/.gitkeep
 *.pt
 *.pth
 *.pkl
 
 # Generated reports
+outputs/*
+!outputs/.gitkeep
+!outputs/reports/
+outputs/reports/*
+!outputs/reports/.gitkeep
+
+# Legacy report output path kept ignored after the project layout migration
 agent_reporter/outputs/
 
 # OS noise
