@@ -31,10 +31,23 @@ class RagTests(unittest.TestCase):
             knowledge.write_text(
                 "\n".join(
                     [
-                        json.dumps({"title": "C2 通信", "tags": ["c2"], "content": "beacon", "recommendation": "查域名"}),
-                        json.dumps({"title": "Wazuh 告警", "tags": ["wazuh"], "content": "alert", "recommendation": "查 agent"}),
-                    ],
-                    ensure_ascii=False,
+                        json.dumps(
+                            {
+                                "title": "C2 communication",
+                                "tags": ["c2"],
+                                "content": "beacon",
+                                "recommendation": "check domain",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "title": "Wazuh alert",
+                                "tags": ["wazuh"],
+                                "content": "alert",
+                                "recommendation": "check agent",
+                            }
+                        ),
+                    ]
                 ),
                 encoding="utf-8",
             )
@@ -42,7 +55,7 @@ class RagTests(unittest.TestCase):
             build_faiss_index(records, FakeEmbeddingClient(), root / "rag")
             store = FaissKnowledgeStore(root / "rag", FakeEmbeddingClient())
             matches = store.search("wazuh alert", top_k=1)
-            self.assertEqual(matches[0]["title"], "Wazuh 告警")
+            self.assertEqual(matches[0]["title"], "Wazuh alert")
 
 
 if __name__ == "__main__":
