@@ -1,0 +1,49 @@
+import importlib.util
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from mineshark.rag.store import FaissKnowledgeStore, build_faiss_index, load_knowledge_jsonl
+
+
+class FakeEmbeddingClient:
+    def embed_texts(self, texts):
+        vectors = []
+        for text in texts:
+            vectors.append([float("c2" in text.lower()), float("wazuh" in text.lower()), 1.0])
+        return vectors
+
+
+class RagTests(unittest.TestCase):
+    @unittest.skipIf(importlib.util.find_spec("faiss") is None, "faiss-cpu is not installed")
+    def test_build_and_search_faiss_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            knowledge = root / "kb.jsonl"
+            knowledge.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"title": "C2 通信", "tags": ["c2"], "content": "beacon", "recommendation": "查域名"}),
+                        json.dumps({"title": "Wazuh 告警", "tags": ["wazuh"], "content": "alert", "recommendation": "查 agent"}),
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            records = load_knowledge_jsonl(knowledge)
+            build_faiss_index(records, FakeEmbeddingClient(), root / "rag")
+            store = FaissKnowledgeStore(root / "rag", FakeEmbeddingClient())
+            matches = store.search("wazuh alert", top_k=1)
+            self.assertEqual(matches[0]["title"], "Wazuh 告警")
+
+
+if __name__ == "__main__":
+    unittest.main()

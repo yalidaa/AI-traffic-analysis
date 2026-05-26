@@ -141,6 +141,34 @@ The local security knowledge base is:
 configs/reporting/security_playbook.jsonl
 ```
 
+## LangGraph Agent + RAG + Wazuh
+
+Build the FAISS RAG index with Qwen/DashScope embeddings:
+
+```powershell
+python .\scripts\rag\build_index.py --env-file .env
+```
+
+Run the LangGraph security triage Agent in VM sidecar mode:
+
+```powershell
+python .\scripts\agent\run_agent_audit.py `
+  --env-file .env `
+  --max-events 5
+```
+
+The Agent reads the VM's existing MineShark AI alerts from `/var/log/ai_alerts.json`, enriches them with Wazuh, Zeek, Suricata, and the local FAISS RAG index, then writes JSON/Markdown reports to:
+
+```text
+outputs/reports/
+```
+
+Detailed setup notes are in:
+
+```text
+docs/agent_rag_wazuh.md
+```
+
 ## Git Policy
 
 The repository tracks source code, scripts, configs, and docs. It ignores:
