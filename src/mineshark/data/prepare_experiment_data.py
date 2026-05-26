@@ -2,10 +2,10 @@ import argparse
 import shutil
 from pathlib import Path
 
-from prepare_ppi_from_logs import convert_one_log
+from mineshark.data.prepare_ppi_from_logs import convert_one_log
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_BASE_SOURCES = {
     "Cridex.pcap.log",
     "Miuref.pcap.log",
@@ -16,7 +16,11 @@ DEFAULT_BASE_SOURCES = {
 
 def ensure_clean_dir(path: Path):
     if path.exists():
-        shutil.rmtree(path)
+        if any(path.iterdir()):
+            raise RuntimeError(
+                f"Refusing to clear non-empty directory: {path}. "
+                "Please move or manually clean it before regenerating experiment data."
+            )
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -56,13 +60,13 @@ def print_section(title: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Prepare log/PPI folders for base/latest/hybrid experiments.")
-    parser.add_argument("--source-malware-dir", type=str, default="logs_malware")
-    parser.add_argument("--source-benign-dir", type=str, default="logs_benign")
-    parser.add_argument("--output-root", type=str, default="data/experiments")
+    parser.add_argument("--source-malware-dir", type=str, default="datasets/raw/logs_malware")
+    parser.add_argument("--source-benign-dir", type=str, default="datasets/raw/logs_benign")
+    parser.add_argument("--output-root", type=str, default="datasets/experiments")
     parser.add_argument(
         "--cesnet-benign-csv",
         type=str,
-        default="data/cesnet_ppi/benign/cesnet_tls_year22_XS.csv",
+        default="datasets/processed/cesnet_ppi/benign/cesnet_tls_year22_XS.csv",
         help="CESNET benign CSV copied into the hybrid PPI benign folder.",
     )
     parser.add_argument("--min-packets", type=int, default=3)

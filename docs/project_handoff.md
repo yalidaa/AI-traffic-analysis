@@ -1,5 +1,7 @@
 # MineShark 项目对话交接记录
 
+> 结构迁移说明：本文是历史交接记录，保留了早期 `agent_reporter/`、`logs_benign/`、`logs_malware/`、`data/` 等旧路径描述。当前代码结构已迁移到 `src/mineshark/`、`scripts/`、`datasets/`、`configs/`、`docs/`、`outputs/`。新命令请优先参考根目录 `README.md` 和 `docs/reporting.md`。
+
 更新时间：2026-05-08
 
 ## 1. 项目定位
