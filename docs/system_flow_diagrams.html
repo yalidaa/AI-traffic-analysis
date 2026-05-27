@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MineShark 系统流程图</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d0d5dd;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --green: #059669;
+      --green-soft: #ecfdf3;
+      --orange: #d97706;
+      --orange-soft: #fffbeb;
+      --purple: #7c3aed;
+      --purple-soft: #f5f3ff;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+      --gray-soft: #f9fafb;
+      --shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(246, 247, 249, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .header-inner {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: var(--blue);
+    }
+
+    button.active {
+      background: var(--blue-soft);
+      border-color: var(--blue);
+      color: var(--blue);
+      font-weight: 600;
+    }
+
+    .zoom-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 6px;
+    }
+
+    input[type="range"] { width: 160px; }
+
+    main {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    aside {
+      position: sticky;
+      top: 92px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    aside h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav button {
+      height: auto;
+      text-align: left;
+      padding: 10px 12px;
+      line-height: 1.35;
+    }
+
+    .hint {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .diagram-card {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .diagram-card.active { display: block; }
+
+    .card-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .card-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .card-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .canvas {
+      height: calc(100vh - 210px);
+      min-height: 620px;
+      overflow: auto;
+      background:
+        linear-gradient(90deg, rgba(16, 24, 40, 0.04) 1px, transparent 1px),
+        linear-gradient(rgba(16, 24, 40, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      cursor: grab;
+    }
+
+    .canvas.dragging {
+      cursor: grabbing;
+      user-select: none;
+    }
+
+    .diagram-wrap {
+      transform-origin: 0 0;
+      padding: 28px;
+      display: inline-block;
+      min-width: 100%;
+    }
+
+    .plain-board {
+      width: 1120px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 22px;
+    }
+
+    .board-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 14px;
+    }
+
+    .board-title h3 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .board-title .summary {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 520px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .step-card, .file-card, .small-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--gray-soft);
+      padding: 12px;
+      min-height: 116px;
+      position: relative;
+    }
+
+    .step-card::after {
+      content: "→";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 700;
+      z-index: 2;
+    }
+
+    .step-card:last-child::after { content: ""; }
+
+    .step-card.blue { background: var(--blue-soft); border-color: #93c5fd; }
+    .step-card.green { background: var(--green-soft); border-color: #86efac; }
+    .step-card.orange { background: var(--orange-soft); border-color: #fcd34d; }
+    .step-card.purple { background: var(--purple-soft); border-color: #c4b5fd; }
+    .step-card.red { background: var(--red-soft); border-color: #fecaca; }
+
+    .num {
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      background: var(--ink);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card-name {
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.35;
+      margin-bottom: 6px;
+    }
+
+    .card-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.9em;
+      background: rgba(16, 24, 40, 0.06);
+      border: 1px solid rgba(16, 24, 40, 0.08);
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .lane {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .lane h4 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .lane ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .section-label {
+      margin: 18px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .section-label::before {
+      content: "";
+      width: 8px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    .file-layers {
+      display: grid;
+      gap: 14px;
+    }
+
+    .file-layer {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .file-layer h4 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .file-card {
+      min-height: 96px;
+      background: var(--gray-soft);
+    }
+
+    .file-card strong {
+      display: block;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 6px;
+      color: #111827;
+      word-break: break-all;
+    }
+
+    .file-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .file-card.primary {
+      background: var(--blue-soft);
+      border-color: #93c5fd;
+    }
+
+    .layer-arrow {
+      text-align: center;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .legend .small-card {
+      min-height: 82px;
+      background: #fff;
+    }
+
+    .rendered-diagram svg {
+      max-width: none !important;
+      height: auto !important;
+      background: white;
+      border-radius: 8px;
+    }
+
+    .mermaid-source { display: none; }
+
+    .notes {
+      padding: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+      line-height: 1.7;
+    }
+
+    .notes p { margin: 0 0 10px; }
+    .notes p:last-child { margin-bottom: 0; }
+
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .canvas { height: 70vh; }
+      .pipeline { grid-template-columns: 1fr; }
+      .step-card::after {
+        content: "↓";
+        right: 50%;
+        top: auto;
+        bottom: -18px;
+        transform: translateX(50%);
+      }
+      .lane-grid, .file-grid, .legend { grid-template-columns: 1fr; }
+      .plain-board { width: 980px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>MineShark 系统流程图</h1>
+        <div class="subtitle">前两张图已改成教学版：先看主链路，再看支撑文件。第三张保留时序图。</div>
+      </div>
+      <div class="toolbar">
+        <button id="zoomOut" type="button">-</button>
+        <div class="zoom-control">
+          <input id="zoomRange" type="range" min="60" max="180" value="100" />
+          <span id="zoomText">100%</span>
+        </div>
+        <button id="zoomIn" type="button">+</button>
+        <button id="resetZoom" type="button">重置</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="layout">
+      <aside>
+        <h2>三张图</h2>
+        <div class="nav">
+          <button class="active" type="button" data-target="overview">图 1：系统总览图</button>
+          <button type="button" data-target="files">图 2：代码文件职责图</button>
+          <button type="button" data-target="flow">图 3：一次研判数据流图</button>
+        </div>
+        <div class="hint">
+          建议阅读顺序：先看每张图顶部的主链路，再看下面的支撑模块。图区可以拖拽，顶部可以缩放。
+        </div>
+      </aside>
+
+      <section class="content">
+        <article id="overview" class="diagram-card active">
+          <div class="card-head">
+            <h2>图 1：系统总览图</h2>
+            <p>这张图只讲“系统怎么跑起来”：实时 AI 检测产出告警，Wazuh 摄取，Agent 旁路研判，最后生成报告。</p>
+          </div>
+          <div class="canvas">
+            <div class="diagram-wrap">
+              <div class="plain-board">
+                <div class="board-title">
+                  <h3>一条主链路先看懂</h3>
+                  <div class="summary">先不要看所有文件。记住这 5 步：采集流量、AI 判断、Wazuh 接收、Agent 关联、LLM 出报告。</div>
+                </div>
+
+                <div class="pipeline">
+                  <div class="step-card blue">
+                    <span class="num">1</span>
+                    <div class="card-name">流量与日志输入</div>
+                    <div class="card-desc">Zeek、Suricata、Wazuh 和 MineShark live log 提供原始证据。</div>
+                  </div>
+                  <div class="step-card green">
+                    <span class="num">2</span>
+                    <div class="card-name">实时 AI 检测</div>
+                    <div class="card-desc"><code>predict_scan.py</code> 调用 Transformer 模型，输出 AI 告警。</div>
+                  </div>
+                  <div class="step-card orange">
+                    <span class="num">3</span>
+                    <div class="card-name">Wazuh 摄取告警</div>
+                    <div class="card-desc">Wazuh 监听 <code>/var/log/ai_alerts.json</code>，触发规则并写入 Indexer。</div>
+                  </div>
+                  <div class="step-card purple">
+                    <span class="num">4</span>
+                    <div class="card-name">Agent 关联证据</div>
+                    <div class="card-desc">读取 AI 告警、Wazuh、Zeek、Suricata 和 RAG 知识。</div>
+                  </div>
+                  <div class="step-card red">
+                    <span class="num">5</span>
+                    <div class="card-name">生成中文报告</div>
+                    <div class="card-desc">DeepSeek 整合证据，输出 JSON 和 Markdown 研判报告。</div>
+                  </div>
+                </div>
+
+                <div class="section-label">关键运行文件</div>
+                <div class="lane-grid">
+                  <div class="lane">
+                    <h4>实时检测层</h4>
+                    <ul>
+                      <li><code>/root/mineshark_lab/mineshark_live.log</code>：模型输入流量行。</li>
+                      <li><code>/opt/mineshark_lab/ai_engine/predict_scan.py</code>：实时推理脚本。</li>
+                      <li><code>deep_mineshark_best.pt</code>：已训练 Transformer 模型。</li>
+                      <li><code>/var/log/ai_alerts.json</code>：AI 告警输出。</li>
+                    </ul>
+                  </div>
+                  <div class="lane">
+                    <h4>Wazuh 证据层</h4>
+                    <ul>
+                      <li><code>Wazuh Manager :55000</code>：查 manager 和 agents。</li>
+                      <li><code>Wazuh Indexer :9200</code>：查 <code>wazuh-alerts-*</code>。</li>
+                      <li><code>/var/ossec/logs/alerts/alerts.json</code>：Indexer 失败时的本地回退。</li>
+                    </ul>
+                  </div>
+                  <div class="lane">
+                    <h4>Agent 研判层</h4>
+                    <ul>
+                      <li><code>/opt/mineshark_agent</code>：本分支项目目录。</li>
+                      <li><code>outputs/rag/</code>：FAISS 知识库索引。</li>
+                      <li><code>outputs/reports/</code>：最终报告。</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="section-label">这张图的面试讲法</div>
+                <div class="legend">
+                  <div class="small-card"><div class="card-name">架构选择</div><div class="card-desc">采用旁路研判，不替换原有实时检测服务。</div></div>
+                  <div class="small-card"><div class="card-name">核心价值</div><div class="card-desc">把 AI 风险线索和 Wazuh/Zeek/Suricata 证据放到同一份报告里。</div></div>
+                  <div class="small-card"><div class="card-name">安全边界</div><div class="card-desc">只读、关联、研判，不自动封禁，不写回规则。</div></div>
+                  <div class="small-card"><div class="card-name">已验证案例</div><div class="card-desc">AI 告警被 Wazuh 规则 100500 摄取，Agent 成功生成报告。</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="notes">
+            <p>你只要先能复述这句话就算懂第一层：<code>mineshark-ai.timer</code> 产出 AI 告警，Wazuh 收进去，Agent 再读 Wazuh 和多源日志，最后让 DeepSeek 写报告。</p>
+          </div>
+        </article>
+
+        <article id="files" class="diagram-card">
+          <div class="card-head">
+            <h2>图 2：代码文件职责图</h2>
+            <p>这张图按“运行时调用顺序”分层。先看蓝色主路径，再看每层旁边的辅助文件。</p>
+          </div>
+          <div class="canvas">
+            <div class="diagram-wrap">
+              <div class="plain-board">
+                <div class="board-title">
+                  <h3>从命令到报告：代码怎么接力</h3>
+                  <div class="summary">不要逐个背文件名。按层记：入口、配置、Agent 编排、工具、外部证据、输出。</div>
+                </div>
+
+                <div class="file-layers">
+                  <div class="file-layer">
+                    <h4>第 1 层：命令入口</h4>
+                    <div class="file-grid">
+                      <div class="file-card primary"><strong>scripts/agent/run_agent_audit.py</strong><span>启动 Agent 研判。它本身很薄，只负责导入项目代码并调用 CLI。</span></div>
+                      <div class="file-card"><strong>scripts/rag/build_index.py</strong><span>构建 RAG 索引，用于先把知识库转成 FAISS。</span></div>
+                      <div class="file-card"><strong>pyproject.toml</strong><span>声明依赖和命令入口。默认不安装 torch，避免 Linux 轻量部署爆盘。</span></div>
+                    </div>
+                  </div>
+
+                  <div class="layer-arrow">↓</div>
+
+                  <div class="file-layer">
+                    <h4>第 2 层：配置加载</h4>
+                    <div class="file-grid">
+                      <div class="file-card primary"><strong>src/mineshark/config.py</strong><span>读取 .env，生成 RuntimeConfig，里面有 DeepSeek、DashScope、Wazuh 和日志路径。</span></div>
+                      <div class="file-card"><strong>.env</strong><span>真实密钥和本机路径。这个文件不提交 Git。</span></div>
+                      <div class="file-card"><strong>.env.example</strong><span>模板文件，告诉别人应该填哪些配置。</span></div>
+                    </div>
+                  </div>
+
+                  <div class="layer-arrow">↓</div>
+
+                  <div class="file-layer">
+                    <h4>第 3 层：Agent 编排</h4>
+                    <div class="file-grid">
+                      <div class="file-card primary"><strong>src/mineshark/agent/cli.py</strong><span>创建 LangGraph ReAct Agent，组装任务提示，调用 DeepSeek，写报告。</span></div>
+                      <div class="file-card primary"><strong>src/mineshark/agent/toolbox.py</strong><span>把每个数据源封装成工具，并记录 tool_trace，方便复盘 Agent 调过什么。</span></div>
+                      <div class="file-card"><strong>DEEPSEEK_MODEL=deepseek-chat</strong><span>使用非 thinking 模式，避免工具调用循环里的 reasoning_content 兼容问题。</span></div>
+                    </div>
+                  </div>
+
+                  <div class="layer-arrow">↓</div>
+
+                  <div class="file-layer">
+                    <h4>第 4 层：Agent 可以调用的工具</h4>
+                    <div class="file-grid">
+                      <div class="file-card primary"><strong>src/mineshark/sensors/ai_alerts.py</strong><span>读 /var/log/ai_alerts.json，按 IP、时间、阈值筛选 AI 告警。</span></div>
+                      <div class="file-card"><strong>src/mineshark/integrations/wazuh.py</strong><span>查 Wazuh Server API、Indexer API，失败时回退本地 alerts.json。</span></div>
+                      <div class="file-card"><strong>src/mineshark/sensors/logs.py</strong><span>读 Zeek conn.log 和 Suricata eve.json，补网络侧上下文。</span></div>
+                      <div class="file-card"><strong>src/mineshark/rag/store.py</strong><span>加载 FAISS 索引，按语义相似度找安全知识。</span></div>
+                      <div class="file-card"><strong>src/mineshark/rag/embeddings.py</strong><span>调用 DashScope 的 text-embedding-v4，生成 query 向量。</span></div>
+                      <div class="file-card"><strong>configs/reporting/security_playbook.jsonl</strong><span>RAG 的原始知识库，包含 C2、误报治理、规则解释等条目。</span></div>
+                    </div>
+                  </div>
+
+                  <div class="layer-arrow">↓</div>
+
+                  <div class="file-layer">
+                    <h4>第 5 层：输出与回归验证</h4>
+                    <div class="file-grid">
+                      <div class="file-card primary"><strong>outputs/reports/agent_audit_report.md</strong><span>给人看的中文研判报告。</span></div>
+                      <div class="file-card primary"><strong>outputs/reports/agent_audit_report.json</strong><span>给系统看的结构化结果，包含 tool_trace 和 Agent messages。</span></div>
+                      <div class="file-card"><strong>tests/*.py</strong><span>单元测试覆盖 AI 告警读取、Wazuh、RAG、Zeek/Suricata、Agent CLI。</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="section-label">面试时按这 3 句话讲</div>
+                <div class="legend">
+                  <div class="small-card"><div class="card-name">第一句</div><div class="card-desc">入口脚本只负责启动，真正逻辑在 <code>src/mineshark</code>。</div></div>
+                  <div class="small-card"><div class="card-name">第二句</div><div class="card-desc"><code>toolbox.py</code> 是中心，它把所有证据源变成 Agent 可调用工具。</div></div>
+                  <div class="small-card"><div class="card-name">第三句</div><div class="card-desc">报告不是凭空生成，而是由 AI 告警、Wazuh、Zeek、Suricata、RAG 共同支撑。</div></div>
+                  <div class="small-card"><div class="card-name">追问准备</div><div class="card-desc">如果问“坏了怎么排查”，先看 <code>agent_audit_report.json</code> 里的 tool_trace。</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="notes">
+            <p>你可以把图二理解成“调用栈”：<code>run_agent_audit.py</code> → <code>agent/cli.py</code> → <code>agent/toolbox.py</code> → 各类工具文件 → <code>outputs/reports</code>。</p>
+          </div>
+        </article>
+
+        <article id="flow" class="diagram-card">
+          <div class="card-head">
+            <h2>图 3：一次完整研判数据流图</h2>
+            <p>这张图回答：一条 MineShark AI 告警如何变成最终报告。</p>
+          </div>
+          <div class="canvas">
+            <div class="diagram-wrap">
+              <pre class="mermaid-source">
+sequenceDiagram
+    autonumber
+    participant LiveLog as /root/mineshark_lab/mineshark_live.log
+    participant Timer as mineshark-ai.timer
+    participant Predict as predict_scan.py
+    participant Model as deep_mineshark_best.pt
+    participant AIFile as /var/log/ai_alerts.json
+    participant Wazuh as Wazuh Manager
+    participant Indexer as Wazuh Indexer
+    participant AgentCLI as run_agent_audit.py
+    participant Toolbox as AgentToolbox
+    participant RAG as FAISS RAG
+    participant DeepSeek as DeepSeek Chat
+    participant Reports as outputs/reports/*.json + *.md
+
+    Timer->>Predict: 定时启动实时 AI 扫描
+    Predict->>LiveLog: 读取新增 MineShark 流量行
+    Predict->>Model: 构造张量并执行 Transformer 推理
+    Model-->>Predict: 返回恶意概率
+    alt 概率 >= threshold
+        Predict->>AIFile: 追加 JSONL 告警
+        AIFile->>Wazuh: Wazuh logcollector 摄取
+        Wazuh->>Indexer: 写入 wazuh-alerts-* 索引
+    else 概率 < threshold
+        Predict-->>Timer: 不写告警，只更新 state
+    end
+
+    AgentCLI->>Toolbox: 创建工具箱和 LangGraph tools
+    AgentCLI->>DeepSeek: 发送系统提示和任务上下文
+    DeepSeek->>Toolbox: 调用 query_mineshark_ai_alerts
+    Toolbox->>AIFile: 读取 AI 告警
+    AIFile-->>Toolbox: 返回模型风险线索
+    DeepSeek->>Toolbox: 调用 query_wazuh_alerts
+    Toolbox->>Indexer: 查询相关 Wazuh 告警
+    Indexer-->>Toolbox: 返回 Wazuh 告警证据
+    DeepSeek->>Toolbox: 调用 query_wazuh_agents
+    Toolbox->>Wazuh: 查询 manager/status 与 agents
+    Wazuh-->>Toolbox: 返回 Manager 和 Agent 状态
+    DeepSeek->>Toolbox: 调用 query_zeek_context
+    Toolbox->>Toolbox: 读取 Zeek conn.log
+    DeepSeek->>Toolbox: 调用 query_suricata_alerts
+    Toolbox->>Toolbox: 读取 Suricata eve.json
+    DeepSeek->>Toolbox: 调用 retrieve_security_knowledge
+    Toolbox->>RAG: 用 DashScope embedding 检索 FAISS
+    RAG-->>Toolbox: 返回安全知识片段
+    Toolbox-->>DeepSeek: 返回所有工具证据
+    DeepSeek-->>AgentCLI: 生成中文研判报告正文
+    AgentCLI->>Reports: 写入 JSON 报告和 Markdown 报告
+              </pre>
+            </div>
+          </div>
+          <div class="notes">
+            <p>本次实验已经验证：AI 告警 <code>lab_replay_mineshark_20260527063525</code> 被 Wazuh 摄取，触发规则 <code>100500</code>，Agent 最终生成 <code>agent_audit_report.md</code>。</p>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      sequence: { mirrorActors: false },
+      themeVariables: {
+        fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Microsoft YaHei, sans-serif",
+        primaryColor: "#eff6ff",
+        primaryTextColor: "#172033",
+        primaryBorderColor: "#2563eb",
+        lineColor: "#667085",
+        secondaryColor: "#f9fafb",
+        tertiaryColor: "#ffffff"
+      }
+    });
+
+    const cards = Array.from(document.querySelectorAll(".diagram-card"));
+    const navButtons = Array.from(document.querySelectorAll(".nav button"));
+    const zoomRange = document.getElementById("zoomRange");
+    const zoomText = document.getElementById("zoomText");
+    const zoomOut = document.getElementById("zoomOut");
+    const zoomIn = document.getElementById("zoomIn");
+    const resetZoom = document.getElementById("resetZoom");
+    let renderCount = 0;
+
+    function setZoom(value) {
+      const zoom = Math.max(60, Math.min(180, Number(value) || 100));
+      zoomRange.value = String(zoom);
+      zoomText.textContent = zoom + "%";
+      for (const wrap of document.querySelectorAll(".diagram-wrap")) {
+        wrap.style.transform = `scale(${zoom / 100})`;
+      }
+    }
+
+    async function renderCard(card) {
+      if (!card || card.dataset.rendered === "true") return;
+      const source = card.querySelector(".mermaid-source");
+      if (!source) {
+        card.dataset.rendered = "true";
+        return;
+      }
+
+      const graph = source.textContent.trim();
+      const id = `mineshark-diagram-${card.id}-${++renderCount}`;
+      try {
+        const result = await mermaid.render(id, graph);
+        const target = document.createElement("div");
+        target.className = "rendered-diagram";
+        target.innerHTML = result.svg;
+        source.replaceWith(target);
+        card.dataset.rendered = "true";
+        setZoom(zoomRange.value);
+      } catch (error) {
+        const target = document.createElement("pre");
+        target.className = "notes";
+        target.textContent = "Mermaid 渲染失败：\n" + String(error);
+        source.replaceWith(target);
+      }
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = button.dataset.target;
+        navButtons.forEach((item) => item.classList.toggle("active", item === button));
+        cards.forEach((card) => card.classList.toggle("active", card.id === target));
+        await renderCard(document.getElementById(target));
+      });
+    });
+
+    zoomRange.addEventListener("input", () => setZoom(zoomRange.value));
+    zoomOut.addEventListener("click", () => setZoom(Number(zoomRange.value) - 10));
+    zoomIn.addEventListener("click", () => setZoom(Number(zoomRange.value) + 10));
+    resetZoom.addEventListener("click", () => setZoom(100));
+
+    for (const canvas of document.querySelectorAll(".canvas")) {
+      let isDown = false;
+      let startX = 0;
+      let startY = 0;
+      let scrollLeft = 0;
+      let scrollTop = 0;
+
+      canvas.addEventListener("mousedown", (event) => {
+        isDown = true;
+        canvas.classList.add("dragging");
+        startX = event.pageX - canvas.offsetLeft;
+        startY = event.pageY - canvas.offsetTop;
+        scrollLeft = canvas.scrollLeft;
+        scrollTop = canvas.scrollTop;
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        isDown = false;
+        canvas.classList.remove("dragging");
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        isDown = false;
+        canvas.classList.remove("dragging");
+      });
+
+      canvas.addEventListener("mousemove", (event) => {
+        if (!isDown) return;
+        event.preventDefault();
+        const x = event.pageX - canvas.offsetLeft;
+        const y = event.pageY - canvas.offsetTop;
+        canvas.scrollLeft = scrollLeft - (x - startX);
+        canvas.scrollTop = scrollTop - (y - startY);
+      });
+    }
+
+    setZoom(100);
+    await renderCard(document.querySelector(".diagram-card.active"));
+  </script>
+</body>
+</html>
