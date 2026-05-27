@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 
-# MineShark CLI Agent demo runner for the Wazuh Linux/WSL server.
+# MineShark CLI Agent 演示脚本，运行在 Wazuh Linux/WSL 服务器内。
 #
-# Purpose:
-#   Run the demo_jianli CLI Agent chain inside the Wazuh environment.
+# 用途：
+#   在 Wazuh 环境里一键跑通 demo_jianli 分支的 CLI Agent 链路。
 #
-# Safety boundary:
-#   - This script does not delete files or directories.
-#   - This script does not modify the old VMware VM.
-#   - This script does not write Wazuh rules or perform automatic blocking.
-#   - This script rebuilds the RAG index unless --skip-rag-build is used.
-#   - This script runs the Agent and overwrites generated report files under outputs/reports/.
+# 安全边界：
+#   - 本脚本不删除任何文件或目录。
+#   - 本脚本不修改原 VMware 虚拟机。
+#   - 本脚本不写入 Wazuh 规则，不做自动封禁或自动处置。
+#   - 默认会重新构建 RAG 索引；如果传入 --skip-rag-build，则跳过。
+#   - 会运行 Agent，并覆盖生成 outputs/reports/ 下的报告文件。
 #
-# Usage:
+# 使用方式：
 #   cd /opt/mineshark_agent
 #   bash scripts/agent/run_cli_agent_demo.sh
 #
-# Options:
-#   --skip-rag-build       Use existing outputs/rag/ instead of rebuilding it.
-#   --max-events N         Max AI events passed to the Agent. Default: 5.
-#   --recursion-limit N    LangGraph recursion limit. Default: 24.
-#   --show-lines N         Markdown report preview lines. Default: 120.
+# 可选参数：
+#   --skip-rag-build       不重新构建 RAG，直接使用已有 outputs/rag/。
+#   --max-events N         传给 Agent 的最大 AI 告警数量，默认 5。
+#   --recursion-limit N    LangGraph 最大递归步数，默认 24。
+#   --show-lines N         预览 Markdown 报告的行数，默认 120。
 
 set -euo pipefail
 
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      echo "Unknown option: $1" >&2
+      echo "未知参数: $1" >&2
       exit 2
       ;;
   esac
@@ -69,34 +69,34 @@ step() {
 
 cd "$PROJECT_DIR"
 
-step "Step 1: Check host, disk, and project path" \
-  "Goal: confirm we are running inside Wazuh and the project directory exists."
-# Print hostname, disk usage, and current directory for quick orientation.
+step "第 1 步：检查主机、磁盘和项目路径" \
+  "目标：确认当前运行在 Wazuh 环境里，并且项目目录存在。"
+# 打印 hostname、根分区空间和当前路径，先确认执行环境没有跑错。
 hostname
 df -hT /
 pwd
 
-step "Step 2: Check Wazuh core services" \
-  "Goal: wazuh-indexer, wazuh-manager, wazuh-dashboard, filebeat, suricata, and ssh should be active."
-# Verify that the security stack is running before the Agent queries Wazuh APIs and logs.
+step "第 2 步：检查 Wazuh 核心服务" \
+  "目标：wazuh-indexer、wazuh-manager、wazuh-dashboard、filebeat、suricata、ssh 都应该是 active。"
+# Agent 后面要查询 Wazuh API 和日志，所以先确认安全组件都在运行。
 systemctl is-active wazuh-indexer wazuh-manager wazuh-dashboard filebeat suricata ssh
 
-step "Step 3: Check Git branch and workspace state" \
-  "Goal: the branch should be demo_jianli. Untracked egg-info is harmless."
-# Show the current branch and local status so we know which code is being tested.
+step "第 3 步：检查 Git 分支和工作区状态" \
+  "目标：当前分支应该是 demo_jianli。未跟踪的 egg-info 是安装元数据，不影响运行。"
+# 打印当前分支和工作区状态，确认测试的是我们约定的 demo_jianli 代码。
 git branch --show-current
 git status --short
 
-step "Step 4: Check Python virtual environment and Agent CLI" \
-  "Goal: Python 3.12 and run_agent_audit.py help should work."
-# Activate the project virtual environment and verify the Agent CLI is importable.
+step "第 4 步：检查 Python 虚拟环境和 Agent CLI" \
+  "目标：Python 3.12 可用，并且 run_agent_audit.py 能正常显示帮助信息。"
+# 激活项目虚拟环境，确认 Agent CLI 能被导入和执行。
 source .venv/bin/activate
 python -V
 python scripts/agent/run_agent_audit.py --help | head -20
 
-step "Step 5: Check .env key status without printing secrets" \
-  "Goal: show set/missing for API keys and passwords; show DeepSeek model name."
-# Read .env safely and do not print actual secrets.
+step "第 5 步：检查 .env 关键配置，但不打印真实密钥" \
+  "目标：只显示 API Key 和密码是 set 还是 missing，同时显示 DeepSeek 模型名。"
+# 安全读取 .env，只判断密钥是否填写，不把真实密钥输出到终端。
 python3 - <<'PY'
 from pathlib import Path
 
@@ -123,49 +123,49 @@ for key in keys:
         print(key + "=" + value)
 PY
 
-step "Step 6: Check MineShark AI alert file" \
-  "Goal: /var/log/ai_alerts.json should contain at least one AI alert for a meaningful demo."
-# Count and preview existing AI alerts produced by the MineShark real-time AI engine.
+step "第 6 步：检查 MineShark AI 告警文件" \
+  "目标：/var/log/ai_alerts.json 至少有一条 AI 告警，这样演示报告才有核心事件。"
+# 统计并预览实时 AI 引擎已经产生的告警。
 wc -l /var/log/ai_alerts.json
 tail -n 3 /var/log/ai_alerts.json
 
-step "Step 7: Check whether Wazuh ingested the AI alert" \
-  "Goal: find rule 100500 or MineShark_Encrypted_Detection in Wazuh alerts."
-# Verify the AI alert entered Wazuh's alert pipeline.
+step "第 7 步：确认 AI 告警已经被 Wazuh 摄取" \
+  "目标：在 Wazuh alerts 里找到规则 100500 或 MineShark_Encrypted_Detection。"
+# 验证 AI 告警是否已经进入 Wazuh 告警链路。
 grep -n 'lab_replay_mineshark_20260527063525\|MineShark_Encrypted_Detection\|100500' \
   /var/ossec/logs/alerts/alerts.json | tail -n 5 || true
 
-step "Step 8: Check existing RAG index files" \
-  "Goal: knowledge.faiss and metadata.json should exist after RAG build."
-# Show current RAG artifacts if they already exist.
+step "第 8 步：检查已有 RAG 索引文件" \
+  "目标：确认 knowledge.faiss 和 metadata.json 是否已经存在。"
+# 如果已经构建过 RAG，这里会显示当前 FAISS 索引产物。
 ls -lh outputs/rag/knowledge.faiss outputs/rag/metadata.json 2>&1 || true
 
 if [[ "$SKIP_RAG_BUILD" -eq 0 ]]; then
-  step "Step 9: Rebuild RAG index" \
-    "Goal: call DashScope embeddings and regenerate outputs/rag/."
-  # Build the FAISS index from configs/reporting/security_playbook.jsonl.
+  step "第 9 步：重新构建 RAG 索引" \
+    "目标：调用 DashScope embedding，把安全知识库重新生成到 outputs/rag/。"
+  # 从 configs/reporting/security_playbook.jsonl 构建 FAISS 知识库索引。
   python scripts/rag/build_index.py --env-file .env
 else
-  step "Step 9: Skip RAG rebuild" \
-    "Reason: --skip-rag-build was provided."
+  step "第 9 步：跳过 RAG 重新构建" \
+    "原因：命令中传入了 --skip-rag-build，将直接使用已有 outputs/rag/。"
 fi
 
-step "Step 10: Run CLI Agent" \
-  "Goal: call DeepSeek and generate JSON/Markdown triage reports."
-# Run the LangGraph Agent in sidecar mode. This reads logs and APIs but does not write back to Wazuh.
+step "第 10 步：正式运行 CLI Agent" \
+  "目标：调用 DeepSeek，让 Agent 读取 AI/Wazuh/Zeek/Suricata/RAG 并生成研判报告。"
+# 以旁路模式运行 LangGraph Agent：只读日志和 API，不写回 Wazuh，不做处置。
 python scripts/agent/run_agent_audit.py \
   --env-file .env \
   --max-events "$MAX_EVENTS" \
   --recursion-limit "$RECURSION_LIMIT"
 
-step "Step 11: Preview Markdown report" \
-  "Goal: verify the report mentions MineShark AI, Wazuh, RAG, and false-positive boundaries."
-# Show the first part of the human-readable report.
+step "第 11 步：预览 Markdown 中文报告" \
+  "目标：确认报告里出现 MineShark AI、Wazuh、RAG、误报边界等内容。"
+# 展示给人阅读的 Markdown 报告前半部分。
 sed -n "1,${SHOW_LINES}p" outputs/reports/agent_audit_report.md
 
-step "Step 12: Show Agent tool trace" \
-  "Goal: inspect which tools the Agent called, so the LLM process is not a black box."
-# Read the structured JSON report and summarize tool calls.
+step "第 12 步：查看 Agent 工具调用轨迹" \
+  "目标：看清楚 Agent 调用了哪些工具，避免 LLM 研判过程变成黑盒。"
+# 读取结构化 JSON 报告，摘要打印 tool_trace。
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -190,5 +190,5 @@ for index, item in enumerate(data.get("tool_trace", []), start=1):
     print(f"{index}. {tool} args={args}{summary}")
 PY
 
-step "Done" \
-  "Reports: outputs/reports/agent_audit_report.md and outputs/reports/agent_audit_report.json"
+step "完成" \
+  "报告路径：outputs/reports/agent_audit_report.md 和 outputs/reports/agent_audit_report.json"
