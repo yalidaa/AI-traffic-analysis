@@ -21,16 +21,25 @@ def _env_file_status(env_file: Optional[str]) -> Dict[str, Any]:
 
 
 def _path_status(path: Path, *, expect_dir: bool = False, required: bool = True) -> Dict[str, Any]:
-    exists = path.exists()
-    type_ok = path.is_dir() if expect_dir else path.is_file()
+    try:
+        exists = path.exists()
+        type_ok = path.is_dir() if expect_dir else path.is_file()
+        error = None
+    except OSError as exc:
+        exists = False
+        type_ok = False
+        error = str(exc)
     ok = exists and type_ok
-    return {
+    status = {
         "path": str(path),
         "exists": exists,
         "type_ok": type_ok,
         "ok": ok or not required,
         "severity": "error" if required and not ok else "ok",
     }
+    if error:
+        status["error"] = error
+    return status
 
 
 def _secret_status(value: str, *, required: bool = True) -> Dict[str, Any]:

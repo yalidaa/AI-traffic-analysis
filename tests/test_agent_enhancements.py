@@ -143,6 +143,23 @@ class AgentEnhancementTests(unittest.TestCase):
             self.assertIn("wazuh_server_api", result["warnings"])
             self.assertEqual(result["checks"]["wazuh_indexer_api"]["error"], "indexer down")
 
+    def test_preflight_records_permission_errors_without_crashing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = make_config(root)
+
+            def fake_exists(self):
+                if str(self).endswith("alerts.json"):
+                    raise PermissionError("permission denied")
+                return False
+
+            with patch.object(Path, "exists", fake_exists):
+                result = run_preflight(config, env_file=str(root / ".env"))
+
+            self.assertFalse(result["ok"])
+            self.assertIn("wazuh_alerts_path", result["errors"])
+            self.assertIn("permission denied", result["checks"]["wazuh_alerts_path"]["error"])
+
     def test_demo_fixture_contains_correlated_event(self):
         fixture = ROOT / "tests" / "fixtures" / "demo_event"
         ai = query_mineshark_ai_alerts(
