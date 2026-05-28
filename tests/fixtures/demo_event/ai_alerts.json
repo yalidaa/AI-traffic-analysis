@@ -1,0 +1,1 @@
+{"alert_id":"demo-alert-001","uid":"Cdemo1","timestamp":"2026-05-28T10:00:00+08:00","src_ip":"10.0.0.5","dst_ip":"203.0.113.10","src_port":51514,"dst_port":443,"prediction":"malware","malware_probability":0.93}

@@ -128,6 +128,8 @@ class AgentToolbox:
     def query_mineshark_ai_alerts(
         self,
         ip: Optional[str] = None,
+        uid: Optional[str] = None,
+        alert_id: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         min_probability: Optional[float] = None,
@@ -139,6 +141,8 @@ class AgentToolbox:
         result = read_mineshark_ai_alerts(
             self.config.mineshark_ai_alerts_path,
             ip=ip,
+            uid=uid,
+            alert_id=alert_id,
             start_time=start_time,
             end_time=end_time,
             min_probability=selected_min_probability,
@@ -148,6 +152,8 @@ class AgentToolbox:
             "query_mineshark_ai_alerts",
             {
                 "ip": ip,
+                "uid": uid,
+                "alert_id": alert_id,
                 "start_time": start_time,
                 "end_time": end_time,
                 "min_probability": selected_min_probability,

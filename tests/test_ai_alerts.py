@@ -69,6 +69,42 @@ class MineSharkAiAlertsTests(unittest.TestCase):
             self.assertEqual(result["matched"], 1)
             self.assertEqual(result["alerts"][0]["src_ip"], "10.0.0.1")
 
+    def test_jsonl_filters_uid_and_alert_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ai_alerts.json"
+            path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "alert_id": "demo-alert-001",
+                                "uid": "Cdemo1",
+                                "src_ip": "10.0.0.1",
+                                "malware_probability": 0.91,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "alert_id": "demo-alert-002",
+                                "uid": "Cdemo2",
+                                "src_ip": "10.0.0.1",
+                                "malware_probability": 0.92,
+                            }
+                        ),
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = query_mineshark_ai_alerts(
+                path,
+                uid="Cdemo1",
+                alert_id="demo-alert-001",
+                min_probability=0.5,
+            )
+            self.assertEqual(result["matched"], 1)
+            self.assertEqual(result["alerts"][0]["_mineshark_uid"], "Cdemo1")
+            self.assertEqual(result["alerts"][0]["_mineshark_alert_id"], "demo-alert-001")
+
     def test_agent_tool_records_ai_alert_trace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

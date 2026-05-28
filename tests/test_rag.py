@@ -37,6 +37,10 @@ class RagTests(unittest.TestCase):
                                 "tags": ["c2"],
                                 "content": "beacon",
                                 "recommendation": "check domain",
+                                "severity_hint": "high",
+                                "evidence_required": ["zeek_uid", "wazuh_rule"],
+                                "false_positive_notes": "cdn can look similar",
+                                "recommended_queries": ["query_zeek_context"],
                             }
                         ),
                         json.dumps(
@@ -52,6 +56,9 @@ class RagTests(unittest.TestCase):
                 encoding="utf-8",
             )
             records = load_knowledge_jsonl(knowledge)
+            self.assertEqual(records[0].severity_hint, "high")
+            self.assertIn("zeek_uid", records[0].text)
+            self.assertIn("cdn can look similar", records[0].text)
             build_faiss_index(records, FakeEmbeddingClient(), root / "rag")
             store = FaissKnowledgeStore(root / "rag", FakeEmbeddingClient())
             matches = store.search("wazuh alert", top_k=1)

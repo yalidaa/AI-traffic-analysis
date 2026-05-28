@@ -18,6 +18,10 @@ class KnowledgeRecord:
     tags: List[str]
     content: str
     recommendation: str
+    severity_hint: str
+    evidence_required: List[str]
+    false_positive_notes: str
+    recommended_queries: List[str]
     raw: Dict[str, Any]
 
     @property
@@ -28,6 +32,10 @@ class KnowledgeRecord:
                 " ".join(self.tags),
                 self.content,
                 self.recommendation,
+                self.severity_hint,
+                " ".join(self.evidence_required),
+                self.false_positive_notes,
+                " ".join(self.recommended_queries),
             ]
         ).strip()
 
@@ -37,6 +45,10 @@ class KnowledgeRecord:
         payload.setdefault("tags", self.tags)
         payload.setdefault("content", self.content)
         payload.setdefault("recommendation", self.recommendation)
+        payload.setdefault("severity_hint", self.severity_hint)
+        payload.setdefault("evidence_required", self.evidence_required)
+        payload.setdefault("false_positive_notes", self.false_positive_notes)
+        payload.setdefault("recommended_queries", self.recommended_queries)
         return payload
 
 
@@ -54,6 +66,10 @@ def load_knowledge_jsonl(path: Path) -> List[KnowledgeRecord]:
                     tags=list(raw.get("tags", [])),
                     content=str(raw.get("content", "")),
                     recommendation=str(raw.get("recommendation", "")),
+                    severity_hint=str(raw.get("severity_hint", "")),
+                    evidence_required=list(raw.get("evidence_required", [])),
+                    false_positive_notes=str(raw.get("false_positive_notes", "")),
+                    recommended_queries=list(raw.get("recommended_queries", [])),
                     raw=raw,
                 )
             )

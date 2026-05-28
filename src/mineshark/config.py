@@ -74,14 +74,24 @@ class RuntimeConfig:
     mineshark_ai_alerts_path: Path
     knowledge_file: Path
     rag_index_dir: Path
+    deepseek_thinking: str = "enabled"
+    deepseek_reasoning_effort: str = "high"
+    deepseek_max_tokens: int = 8192
 
     @classmethod
     def from_env(cls, env_file: Optional[str] = None) -> "RuntimeConfig":
         _load_dotenv(env_file)
+        raw_model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
+        model_aliases = {
+            "deepsekk_v4_pro": "deepseek-v4-pro",
+            "deepseek_v4_pro": "deepseek-v4-pro",
+            "deepseek-v4-pro": "deepseek-v4-pro",
+        }
+        deepseek_model = model_aliases.get(raw_model.strip(), raw_model.strip())
         return cls(
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
-            deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
-            deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+            deepseek_model=deepseek_model,
             dashscope_api_key=os.getenv("DASHSCOPE_API_KEY", ""),
             dashscope_base_url=os.getenv(
                 "DASHSCOPE_BASE_URL",
@@ -114,6 +124,9 @@ class RuntimeConfig:
                 os.getenv("MINESHARK_KNOWLEDGE_FILE", "configs/reporting/security_playbook.jsonl")
             ),
             rag_index_dir=resolve_project_path(os.getenv("MINESHARK_RAG_INDEX_DIR", "outputs/rag")),
+            deepseek_thinking=os.getenv("DEEPSEEK_THINKING", "enabled").strip().lower(),
+            deepseek_reasoning_effort=os.getenv("DEEPSEEK_REASONING_EFFORT", "high").strip().lower(),
+            deepseek_max_tokens=_env_int("DEEPSEEK_MAX_TOKENS", 8192),
         )
 
     def tls_warning(self) -> str | None:

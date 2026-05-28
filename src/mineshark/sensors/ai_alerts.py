@@ -16,6 +16,8 @@ SCORE_FIELDS = {
     "p_malware",
 }
 TIME_FIELDS = {"@timestamp", "timestamp", "ts", "time", "generated_at", "event_time"}
+UID_FIELDS = {"uid", "zeek_uid", "connection_uid", "flow_uid"}
+ALERT_ID_FIELDS = {"alert_id", "id", "event_id", "rule_id", "alert_uid"}
 
 
 def _iter_values(value: Any) -> Iterable[Any]:
@@ -67,6 +69,22 @@ def _first_timestamp(record: Dict[str, Any]) -> Optional[str]:
     if raw is None:
         return None
     return str(raw)
+
+
+def _first_identifier(record: Dict[str, Any], keys: set[str]) -> Optional[str]:
+    raw = _find_first_by_key(record, keys)
+    if raw is None:
+        return None
+    return str(raw)
+
+
+def _matches_identifier(record: Dict[str, Any], expected: Optional[str], keys: set[str]) -> bool:
+    if not expected:
+        return True
+    found = _first_identifier(record, keys)
+    if found == expected:
+        return True
+    return any(str(value) == expected for value in _iter_values(record))
 
 
 def _within_time(record: Dict[str, Any], start_time: Optional[str], end_time: Optional[str]) -> bool:
@@ -125,6 +143,8 @@ def load_ai_alert_records(path: Path) -> Tuple[List[Dict[str, Any]], int]:
 def query_mineshark_ai_alerts(
     alerts_path: Path,
     ip: Optional[str] = None,
+    uid: Optional[str] = None,
+    alert_id: Optional[str] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     min_probability: Optional[float] = 0.5,
@@ -135,6 +155,10 @@ def query_mineshark_ai_alerts(
     for record in records:
         if not _contains_ip(record, ip):
             continue
+        if not _matches_identifier(record, uid, UID_FIELDS):
+            continue
+        if not _matches_identifier(record, alert_id, ALERT_ID_FIELDS):
+            continue
         if not _within_time(record, start_time, end_time):
             continue
         score = _first_score(record)
@@ -143,6 +167,8 @@ def query_mineshark_ai_alerts(
         item = dict(record)
         item.setdefault("_mineshark_score", score)
         item.setdefault("_mineshark_timestamp", _first_timestamp(record))
+        item.setdefault("_mineshark_uid", _first_identifier(record, UID_FIELDS))
+        item.setdefault("_mineshark_alert_id", _first_identifier(record, ALERT_ID_FIELDS))
         selected.append(item)
         if len(selected) >= limit:
             break

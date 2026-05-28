@@ -163,11 +163,30 @@ python .\scripts\agent\run_agent_audit.py `
   --max-events 5
 ```
 
+Run a deterministic single-event review before the LangGraph report:
+
+```powershell
+python .\scripts\agent\run_agent_audit.py `
+  --env-file .env `
+  --alert-id demo-alert-001 `
+  --uid Cdemo1 `
+  --max-events 5
+```
+
+Useful diagnostics:
+
+```powershell
+python .\scripts\agent\run_agent_audit.py --env-file .env --preflight-only
+python .\scripts\agent\run_agent_audit.py --env-file .env --evidence-only --uid Cdemo1
+```
+
 The Agent reads the VM's existing MineShark AI alerts from `/var/log/ai_alerts.json`, enriches them with Wazuh, Zeek, Suricata, and the local FAISS RAG index, then writes JSON/Markdown reports to:
 
 ```text
 outputs/reports/
 ```
+
+The JSON output includes `preflight`, `evidence_bundle`, `quality_checks`, `report_status`, and `llm_runtime` fields for debugging and downstream reuse.
 
 Detailed setup notes are in:
 

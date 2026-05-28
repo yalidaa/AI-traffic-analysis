@@ -1,0 +1,1 @@
+{"@timestamp":"2026-05-28T10:00:02+08:00","rule":{"id":"100500","level":12,"description":"MineShark AI detected malicious encrypted traffic"},"data":{"srcip":"10.0.0.5","dstip":"203.0.113.10","uid":"Cdemo1","alert_id":"demo-alert-001"}}

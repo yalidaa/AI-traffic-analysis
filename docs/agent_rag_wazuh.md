@@ -35,6 +35,10 @@ cp .env.example .env
 
 ```text
 DEEPSEEK_API_KEY=...
+DEEPSEEK_MODEL=deepseek-v4-pro
+DEEPSEEK_THINKING=enabled
+DEEPSEEK_REASONING_EFFORT=high
+DEEPSEEK_MAX_TOKENS=8192
 DASHSCOPE_API_KEY=...
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
@@ -104,6 +108,23 @@ python scripts/agent/run_agent_audit.py \
   --max-events 5
 ```
 
+如需精准复盘单条事件：
+
+```bash
+python scripts/agent/run_agent_audit.py \
+  --env-file .env \
+  --alert-id demo-alert-001 \
+  --uid Cdemo1 \
+  --max-events 5
+```
+
+如需只做运行前检查或只输出确定性证据聚合：
+
+```bash
+python scripts/agent/run_agent_audit.py --env-file .env --preflight-only
+python scripts/agent/run_agent_audit.py --env-file .env --evidence-only --uid Cdemo1
+```
+
 只有需要重新跑离线模型推理时，才显式开启：
 
 ```bash
@@ -120,6 +141,8 @@ python scripts/agent/run_agent_audit.py \
 outputs/reports/agent_audit_report.json
 outputs/reports/agent_audit_report.md
 ```
+
+JSON 报告会额外保留 `preflight`、`evidence_bundle`、`quality_checks`、`report_status` 和 `llm_runtime`，用于排查证据缺失、工具失败和大模型运行参数。
 
 ## 能力边界
 

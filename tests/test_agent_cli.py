@@ -9,7 +9,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mineshark.agent.cli import build_user_request, serialise_messages
+from mineshark.agent.cli import build_llm_kwargs, build_user_request, serialise_messages
+from mineshark.config import RuntimeConfig
 
 
 class FakeMessage:
@@ -30,6 +31,7 @@ class AgentCliTests(unittest.TestCase):
             task="生成报告",
             ai_alerts_path="/var/log/ai_alerts.json",
             log_file="sample.log",
+            alert_id="demo-alert-001",
             ip="10.0.0.1",
             uid=None,
             start_time=None,
@@ -42,8 +44,70 @@ class AgentCliTests(unittest.TestCase):
         text = build_user_request(args)
         self.assertIn("10.0.0.1", text)
         self.assertIn("sample.log", text)
+        self.assertIn("demo-alert-001", text)
         self.assertIn("/var/log/ai_alerts.json", text)
         self.assertIn("sidecar_read_existing_ai_alerts", text)
+
+    def test_build_llm_kwargs_enables_thinking_without_temperature(self):
+        config = RuntimeConfig(
+            deepseek_api_key="key",
+            deepseek_base_url="https://api.deepseek.com",
+            deepseek_model="deepseek-v4-pro",
+            dashscope_api_key="",
+            dashscope_base_url="",
+            dashscope_embedding_model="",
+            wazuh_base_url="",
+            wazuh_username="",
+            wazuh_password="",
+            wazuh_indexer_url="",
+            wazuh_indexer_username="",
+            wazuh_indexer_password="",
+            wazuh_index_pattern="",
+            wazuh_verify_ssl=False,
+            wazuh_timeout=5,
+            zeek_log_dir=ROOT,
+            suricata_eve_path=ROOT / "eve.json",
+            wazuh_alerts_path=ROOT / "alerts.json",
+            mineshark_ai_alerts_path=ROOT / "ai_alerts.json",
+            knowledge_file=ROOT / "knowledge.jsonl",
+            rag_index_dir=ROOT / "rag",
+            deepseek_thinking="enabled",
+            deepseek_reasoning_effort="high",
+            deepseek_max_tokens=8192,
+        )
+        kwargs = build_llm_kwargs(config)
+        self.assertNotIn("temperature", kwargs)
+        self.assertEqual(kwargs["model_kwargs"]["extra_body"]["thinking"]["type"], "enabled")
+        self.assertEqual(kwargs["model_kwargs"]["reasoning_effort"], "high")
+
+    def test_build_llm_kwargs_keeps_legacy_model_configurable(self):
+        config = RuntimeConfig(
+            deepseek_api_key="key",
+            deepseek_base_url="https://api.deepseek.com/v1",
+            deepseek_model="deepseek-chat",
+            dashscope_api_key="",
+            dashscope_base_url="",
+            dashscope_embedding_model="",
+            wazuh_base_url="",
+            wazuh_username="",
+            wazuh_password="",
+            wazuh_indexer_url="",
+            wazuh_indexer_username="",
+            wazuh_indexer_password="",
+            wazuh_index_pattern="",
+            wazuh_verify_ssl=False,
+            wazuh_timeout=5,
+            zeek_log_dir=ROOT,
+            suricata_eve_path=ROOT / "eve.json",
+            wazuh_alerts_path=ROOT / "alerts.json",
+            mineshark_ai_alerts_path=ROOT / "ai_alerts.json",
+            knowledge_file=ROOT / "knowledge.jsonl",
+            rag_index_dir=ROOT / "rag",
+        )
+        kwargs = build_llm_kwargs(config)
+        self.assertEqual(kwargs["model"], "deepseek-chat")
+        self.assertEqual(kwargs["temperature"], 0.2)
+        self.assertNotIn("model_kwargs", kwargs)
 
 
 if __name__ == "__main__":
