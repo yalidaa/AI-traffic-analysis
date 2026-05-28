@@ -77,8 +77,40 @@ class AgentCliTests(unittest.TestCase):
         )
         kwargs = build_llm_kwargs(config)
         self.assertNotIn("temperature", kwargs)
-        self.assertEqual(kwargs["model_kwargs"]["extra_body"]["thinking"]["type"], "enabled")
-        self.assertEqual(kwargs["model_kwargs"]["reasoning_effort"], "high")
+        self.assertEqual(kwargs["extra_body"]["thinking"]["type"], "enabled")
+        self.assertEqual(kwargs["reasoning_effort"], "high")
+
+    def test_build_llm_kwargs_disables_thinking_for_tool_agent(self):
+        config = RuntimeConfig(
+            deepseek_api_key="key",
+            deepseek_base_url="https://api.deepseek.com",
+            deepseek_model="deepseek-v4-pro",
+            dashscope_api_key="",
+            dashscope_base_url="",
+            dashscope_embedding_model="",
+            wazuh_base_url="",
+            wazuh_username="",
+            wazuh_password="",
+            wazuh_indexer_url="",
+            wazuh_indexer_username="",
+            wazuh_indexer_password="",
+            wazuh_index_pattern="",
+            wazuh_verify_ssl=False,
+            wazuh_timeout=5,
+            zeek_log_dir=ROOT,
+            suricata_eve_path=ROOT / "eve.json",
+            wazuh_alerts_path=ROOT / "alerts.json",
+            mineshark_ai_alerts_path=ROOT / "ai_alerts.json",
+            knowledge_file=ROOT / "knowledge.jsonl",
+            rag_index_dir=ROOT / "rag",
+            deepseek_thinking="enabled",
+            deepseek_reasoning_effort="high",
+            deepseek_max_tokens=8192,
+        )
+        kwargs = build_llm_kwargs(config, allow_thinking=False)
+        self.assertEqual(kwargs["extra_body"]["thinking"]["type"], "disabled")
+        self.assertEqual(kwargs["temperature"], 0.2)
+        self.assertNotIn("reasoning_effort", kwargs)
 
     def test_build_llm_kwargs_keeps_legacy_model_configurable(self):
         config = RuntimeConfig(
@@ -107,7 +139,7 @@ class AgentCliTests(unittest.TestCase):
         kwargs = build_llm_kwargs(config)
         self.assertEqual(kwargs["model"], "deepseek-chat")
         self.assertEqual(kwargs["temperature"], 0.2)
-        self.assertNotIn("model_kwargs", kwargs)
+        self.assertNotIn("extra_body", kwargs)
 
 
 if __name__ == "__main__":

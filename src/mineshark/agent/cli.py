@@ -102,41 +102,48 @@ def _supports_thinking_options(model: str) -> bool:
     return "v4" in model or model in {"deepseek-reasoner"}
 
 
-def build_llm_kwargs(config: RuntimeConfig) -> Dict[str, Any]:
+def build_llm_kwargs(config: RuntimeConfig, *, allow_thinking: bool = True) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "api_key": config.deepseek_api_key,
         "base_url": config.deepseek_base_url,
         "model": config.deepseek_model,
         "max_tokens": config.deepseek_max_tokens,
     }
-    model_kwargs: Dict[str, Any] = {}
     if _supports_thinking_options(config.deepseek_model):
-        thinking_type = "enabled" if _thinking_enabled(config) else "disabled"
-        model_kwargs["extra_body"] = {"thinking": {"type": thinking_type}}
+        thinking_type = "enabled" if allow_thinking and _thinking_enabled(config) else "disabled"
+        kwargs["extra_body"] = {"thinking": {"type": thinking_type}}
         if thinking_type == "enabled":
-            model_kwargs["reasoning_effort"] = config.deepseek_reasoning_effort
+            kwargs["reasoning_effort"] = config.deepseek_reasoning_effort
         else:
             kwargs["temperature"] = 0.2
     else:
         kwargs["temperature"] = 0.2
 
-    if model_kwargs:
-        kwargs["model_kwargs"] = model_kwargs
     return kwargs
 
 
-def build_llm_runtime(config: RuntimeConfig) -> Dict[str, Any]:
+def build_llm_runtime(config: RuntimeConfig, *, effective_thinking: Optional[str] = None) -> Dict[str, Any]:
+    effective = effective_thinking or config.deepseek_thinking
+    disabled_reason = None
+    if _thinking_enabled(config) and effective == "disabled":
+        disabled_reason = (
+            "LangGraph tool calls require multi-turn assistant/tool messages; "
+            "DeepSeek thinking mode currently requires reasoning_content to be replayed, "
+            "so tool-enabled Agent runs disable thinking for compatibility."
+        )
     return {
         "provider": "deepseek",
         "model": config.deepseek_model,
         "base_url": config.deepseek_base_url,
-        "thinking": config.deepseek_thinking,
+        "requested_thinking": config.deepseek_thinking,
+        "effective_thinking": effective,
         "reasoning_effort": config.deepseek_reasoning_effort,
         "max_tokens": config.deepseek_max_tokens,
+        "thinking_disabled_reason": disabled_reason,
     }
 
 
-def build_agent(config: RuntimeConfig, tools):
+def build_agent(config: RuntimeConfig, tools, *, allow_thinking: bool = False):
     if not config.deepseek_api_key:
         raise RuntimeError("DEEPSEEK_API_KEY is required for mineshark-agent-audit.")
     try:
@@ -145,7 +152,7 @@ def build_agent(config: RuntimeConfig, tools):
     except Exception as exc:
         raise RuntimeError("langgraph and langchain-openai are required for the Agent CLI.") from exc
 
-    model = ChatOpenAI(**build_llm_kwargs(config))
+    model = ChatOpenAI(**build_llm_kwargs(config, allow_thinking=allow_thinking))
     try:
         return create_react_agent(model, tools, prompt=SYSTEM_PROMPT)
     except TypeError:
@@ -205,7 +212,7 @@ def run_agent_audit(args: argparse.Namespace) -> Dict[str, Any]:
         markdown = "# MineShark EvidenceBundle\n\n已完成确定性证据聚合，未调用大模型。\n"
     else:
         tools = build_langchain_tools(toolbox, include_model_tool=args.rerun_model)
-        agent = build_agent(config, tools)
+        agent = build_agent(config, tools, allow_thinking=False)
         result = agent.invoke(
             {"messages": [{"role": "user", "content": build_user_request(args, evidence_bundle)}]},
             config={"recursion_limit": args.recursion_limit},
@@ -245,7 +252,7 @@ def run_agent_audit(args: argparse.Namespace) -> Dict[str, Any]:
             "mineshark_ai_alerts_path": str(config.mineshark_ai_alerts_path),
             "warning": warning,
         },
-        "llm_runtime": build_llm_runtime(config),
+        "llm_runtime": build_llm_runtime(config, effective_thinking="disabled"),
         "preflight": preflight,
         "evidence_bundle": evidence_bundle,
         "quality_checks": quality_checks,
