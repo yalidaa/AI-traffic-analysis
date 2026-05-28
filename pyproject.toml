@@ -28,11 +28,16 @@ cesnet = [
     "cesnet-datazoo>=0.1.15",
     "pandas>=2.0.0",
 ]
+web = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+]
 
 [project.scripts]
 mineshark-train = "mineshark.training.train:cli"
 mineshark-audit = "mineshark.reporting.agent_audit:main"
 mineshark-agent-audit = "mineshark.agent.cli:main"
+mineshark-console = "mineshark.web.console:main"
 mineshark-build-rag = "mineshark.rag.build_index:main"
 mineshark-prepare-ppi = "mineshark.data.prepare_ppi_from_logs:main"
 mineshark-prepare-malware-ppi = "mineshark.data.prepare_malware_ppi_from_logs:main"

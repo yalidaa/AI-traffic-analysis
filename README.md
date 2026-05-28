@@ -194,6 +194,21 @@ Detailed setup notes are in:
 docs/agent_rag_wazuh.md
 ```
 
+## MineShark Console
+
+The `demo_jianli` branch also includes a dark SOC-style web console backed by FastAPI and React/Vite. It exposes read-only triage APIs, can trigger `preflight`, `evidence-only`, and `agent-report` tasks, and stores report history in SQLite under `outputs/console/`.
+
+```powershell
+pip install -e ".[web]"
+cd .\web\frontend
+npm install
+npm run build
+cd ..\..
+mineshark-console --host 0.0.0.0 --port 8008
+```
+
+See `docs/mineshark_console.md` for the VM deployment notes.
+
 ## Git Policy
 
 The repository tracks source code, scripts, configs, and docs. It ignores:
