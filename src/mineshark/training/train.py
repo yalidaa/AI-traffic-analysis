@@ -227,10 +227,7 @@ def main(args, parser):
             max_samples_per_source=args.max_samples_per_source,
             seed=args.seed,
         )
-        print(
-            f"Capped samples per source: {args.max_samples_per_source} "
-            f"(from {original_total} to {len(all_samples)})"
-        )
+        print(f"Capped samples per source: {args.max_samples_per_source} (from {original_total} to {len(all_samples)})")
 
     if args.split_mode == "by_source":
         train_samples, val_samples, test_samples = split_samples_by_source(
@@ -373,10 +370,7 @@ def main(args, parser):
             )
             break
 
-    print(
-        f"Best model saved to: {args.save_path} "
-        f"(best_epoch={best_epoch}, val_f1={best_val_f1:.4f})"
-    )
+    print(f"Best model saved to: {args.save_path} (best_epoch={best_epoch}, val_f1={best_val_f1:.4f})")
 
     checkpoint = torch.load(args.save_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])

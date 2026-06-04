@@ -34,6 +34,7 @@ datasets/experiments/*
 !datasets/experiments/.gitkeep
 *.pcap
 *.log
+!tests/fixtures/demo_event/conn.log
 *.csv
 *.tar.gz
 *.jsonl.gz

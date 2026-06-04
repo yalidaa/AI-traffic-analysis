@@ -230,13 +230,23 @@ python .\scripts\data\prepare_experiment_data.py
 
 安全说明：数据准备脚本不会自动清空已有非空输出目录。如需清理实验目录，请人工确认后手动处理。
 
-## Tests
+## Tests And Formatting
 
-运行全部单元测试：
+同步开发、Web 和机器学习依赖：
 
 ```bash
-python -m unittest discover -s tests
+uv sync --extra web --extra ml --dev
 ```
+
+运行静态检查、格式检查和全部测试：
+
+```bash
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run pytest
+```
+
+GitHub Actions 会在每次 push 和 pull request 时自动运行相同检查。
 
 构建前端：
 

@@ -101,9 +101,7 @@ class AgentToolbox:
                 max_iat=float(model_config.get("max_iat", 10.0)),
             )
             scored_events = infer_events(model, raw_events, device=device, batch_size=128)
-            candidates = [
-                event for event in scored_events if event["malware_probability"] >= selected_threshold
-            ]
+            candidates = [event for event in scored_events if event["malware_probability"] >= selected_threshold]
             candidates.sort(key=lambda item: item["malware_probability"], reverse=True)
             selected = candidates[:selected_max_events]
             result = {

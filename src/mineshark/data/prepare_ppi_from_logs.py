@@ -27,9 +27,10 @@ def convert_one_log(log_path: str, out_csv: str, app_label: str, min_packets: in
     skipped = 0
     src_name = os.path.basename(log_path)
 
-    with open(log_path, "r", encoding="utf-8", errors="ignore") as fin, open(
-        out_csv, "w", encoding="utf-8", newline=""
-    ) as fout:
+    with (
+        open(log_path, "r", encoding="utf-8", errors="ignore") as fin,
+        open(out_csv, "w", encoding="utf-8", newline="") as fout,
+    ):
         writer = csv.DictWriter(fout, fieldnames=["PPI", "APP", "SOURCE"])
         writer.writeheader()
 

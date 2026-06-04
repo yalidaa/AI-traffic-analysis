@@ -111,9 +111,7 @@ class RuntimeConfig:
             wazuh_verify_ssl=_env_bool("WAZUH_VERIFY_SSL", False),
             wazuh_timeout=_env_int("WAZUH_TIMEOUT", 20),
             zeek_log_dir=resolve_project_path(os.getenv("ZEEK_LOG_DIR", "/opt/zeek/spool/zeek")),
-            suricata_eve_path=resolve_project_path(
-                os.getenv("SURICATA_EVE_PATH", "/var/log/suricata/eve.json")
-            ),
+            suricata_eve_path=resolve_project_path(os.getenv("SURICATA_EVE_PATH", "/var/log/suricata/eve.json")),
             wazuh_alerts_path=resolve_project_path(
                 os.getenv("WAZUH_ALERTS_PATH", "/var/ossec/logs/alerts/alerts.json")
             ),

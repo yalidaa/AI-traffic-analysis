@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import os
 
 from cesnet_datazoo.config import DatasetConfig
@@ -64,5 +64,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -128,9 +128,7 @@ class FaissKnowledgeStore:
         index_path = self.index_dir / INDEX_FILE
         metadata_path = self.index_dir / METADATA_FILE
         if not index_path.exists() or not metadata_path.exists():
-            raise FileNotFoundError(
-                f"RAG index is missing. Run mineshark-build-rag first: {self.index_dir}"
-            )
+            raise FileNotFoundError(f"RAG index is missing. Run mineshark-build-rag first: {self.index_dir}")
         self._index = faiss.read_index(str(index_path))
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         self._records = list(metadata.get("records", []))

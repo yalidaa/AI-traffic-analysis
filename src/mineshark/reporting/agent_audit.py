@@ -29,8 +29,7 @@ def require_ml_dependencies():
         from mineshark.models.traffic_transformer import TrafficTransformer
     except ImportError as exc:
         raise SystemExit(
-            "The legacy Transformer report requires optional ML dependencies. "
-            "Install them with: pip install -e '.[ml]'"
+            "The legacy Transformer report requires optional ML dependencies. Install them with: pip install -e '.[ml]'"
         ) from exc
     return torch, TrafficTransformer
 
@@ -197,9 +196,7 @@ def infer_events(model, events: List[Dict], device, batch_size: int) -> List[Dic
             batch_events = events[start : start + batch_size]
             sizes = torch.tensor([e["tensor"]["sizes"] for e in batch_events], dtype=torch.long).to(device)
             iats = (
-                torch.tensor([e["tensor"]["iats"] for e in batch_events], dtype=torch.float32)
-                .unsqueeze(-1)
-                .to(device)
+                torch.tensor([e["tensor"]["iats"] for e in batch_events], dtype=torch.float32).unsqueeze(-1).to(device)
             )
             dirs = torch.tensor([e["tensor"]["dirs"] for e in batch_events], dtype=torch.long).to(device)
             mask = torch.tensor([e["tensor"]["mask"] for e in batch_events], dtype=torch.bool).to(device)
@@ -333,9 +330,7 @@ def build_prompt(events: List[Dict], knowledge_matches: List[Dict]) -> List[Dict
         "你是企业内网安全运营分析助手。你会基于 AI 模型输出、Zeek/MineShark 流量元数据和"
         "安全知识库片段生成审计报告。必须谨慎表达，不能把模型概率直接等同于攻击事实。"
     )
-    user = "请根据以下 JSON 生成 Markdown 格式中文报告：\n" + json.dumps(
-        payload, ensure_ascii=False, indent=2
-    )
+    user = "请根据以下 JSON 生成 Markdown 格式中文报告：\n" + json.dumps(payload, ensure_ascii=False, indent=2)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -528,9 +523,7 @@ def main():
             "total_valid_connections": len(scored_events),
             "connections_above_threshold": len(candidates),
             "reported_events": len(selected_events),
-            "max_malware_probability": max(
-                [event["malware_probability"] for event in scored_events], default=0.0
-            ),
+            "max_malware_probability": max([event["malware_probability"] for event in scored_events], default=0.0),
             "risk_counts": risk_counts(selected_events),
         },
         "knowledge_matches": knowledge_matches,

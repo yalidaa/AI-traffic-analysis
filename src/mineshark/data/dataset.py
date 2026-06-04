@@ -1,4 +1,4 @@
-﻿import ast
+import ast
 import csv
 import glob
 import gzip
@@ -97,14 +97,10 @@ def load_samples_from_dirs(
     samples: List[Dict[str, Sequence]] = []
 
     for log_file in glob.glob(os.path.join(malware_dir, "*.log")):
-        samples.extend(
-            parse_mineshark_log(log_file, 1, max_len, min_packets, max_pkt_size, max_iat)
-        )
+        samples.extend(parse_mineshark_log(log_file, 1, max_len, min_packets, max_pkt_size, max_iat))
 
     for log_file in glob.glob(os.path.join(benign_dir, "*.log")):
-        samples.extend(
-            parse_mineshark_log(log_file, 0, max_len, min_packets, max_pkt_size, max_iat)
-        )
+        samples.extend(parse_mineshark_log(log_file, 0, max_len, min_packets, max_pkt_size, max_iat))
 
     return samples
 
@@ -451,9 +447,7 @@ def split_samples_by_source(
             if sample["label"] == label:
                 source_counts[sample["source"]] += 1
 
-        train_keys, val_keys, test_keys = _assign_sources_by_count(
-            dict(source_counts), test_size, val_size, rng
-        )
+        train_keys, val_keys, test_keys = _assign_sources_by_count(dict(source_counts), test_size, val_size, rng)
         split_map[label] = {
             "train": train_keys,
             "val": val_keys,

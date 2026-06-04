@@ -1,0 +1,3 @@
+#separator \x09
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto
+1779933600.0	Cdemo1	10.0.0.5	51514	203.0.113.10	443	tcp

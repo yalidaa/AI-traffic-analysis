@@ -133,8 +133,9 @@ class AgentEnhancementTests(unittest.TestCase):
                 def search_alerts(self, limit=1):
                     raise RuntimeError("indexer down")
 
-            with patch("mineshark.agent.preflight.WazuhServerClient", BrokenServerClient), patch(
-                "mineshark.agent.preflight.WazuhIndexerClient", BrokenIndexerClient
+            with (
+                patch("mineshark.agent.preflight.WazuhServerClient", BrokenServerClient),
+                patch("mineshark.agent.preflight.WazuhIndexerClient", BrokenIndexerClient),
             ):
                 result = run_preflight(config, env_file=str(root / ".env"), check_wazuh_api=True)
 

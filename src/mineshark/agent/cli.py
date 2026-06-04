@@ -4,7 +4,6 @@ import argparse
 import json
 from dataclasses import replace
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from mineshark.config import RuntimeConfig, resolve_project_path
@@ -89,8 +88,7 @@ def build_user_request(args: argparse.Namespace, evidence_bundle: Optional[Dict[
     return (
         "请基于以下运行参数完成一次安全研判。第一步必须调用 query_mineshark_ai_alerts 读取现有实时 AI 告警；"
         "随后按需调用 Wazuh、Zeek、Suricata 和 RAG 工具补充证据，最后输出 Markdown 报告。"
-        "只有 rerun_model_enabled=true 时才允许重新运行模型推理。\n"
-        + json.dumps(context, ensure_ascii=False, indent=2)
+        "只有 rerun_model_enabled=true 时才允许重新运行模型推理。\n" + json.dumps(context, ensure_ascii=False, indent=2)
     )
 
 
