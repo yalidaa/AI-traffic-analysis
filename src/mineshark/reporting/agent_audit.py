@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_KNOWLEDGE_PATH = PROJECT_ROOT / "configs" / "reporting" / "security_playbook.jsonl"
 DEFAULT_OUTPUT_JSON = PROJECT_ROOT / "outputs" / "reports" / "audit_report.json"
 DEFAULT_OUTPUT_MD = PROJECT_ROOT / "outputs" / "reports" / "audit_report.md"
+COMMON_SERVICE_PORTS = {"80", "443", "53", "22", "25", "110", "143", "993", "995", "389", "445"}
 
 
 def default_device() -> str:
@@ -79,7 +80,7 @@ def build_evidence(pkt_sizes: List[int], pkt_iats: List[float], resp_p: str) -> 
         evidence.append("包间隔中位数较低，短时间内出现密集交互。")
     if iat_stats["max"] >= 1.0:
         evidence.append("包间隔中存在秒级停顿，可能是周期性通信或交互式会话特征。")
-    if resp_p not in {"80", "443", "53", "22", "25", "110", "143", "993", "995", "389", "445"}:
+    if resp_p not in COMMON_SERVICE_PORTS:
         evidence.append(f"目的端口 {resp_p} 不是常见 Web/邮件/DNS/管理端口，建议核查业务归属。")
     return evidence
 
@@ -209,12 +210,15 @@ def infer_events(model, events: List[Dict], device, batch_size: int) -> List[Dic
                 malware_probability = float(prob[1])
                 benign_probability = float(prob[0])
                 result = dict(event["context"])
+                risk_level = classify_risk(malware_probability)
                 result.update(
                     {
                         "predicted_label": "malware" if int(pred) == 1 else "benign",
                         "malware_probability": malware_probability,
                         "benign_probability": benign_probability,
-                        "risk_level": classify_risk(malware_probability),
+                        "risk_level": risk_level,
+                        "evidence_strength": classify_evidence_strength(result),
+                        "risk_explanation": explain_risk(risk_level, malware_probability),
                     }
                 )
                 scored.append(result)
@@ -229,6 +233,95 @@ def classify_risk(malware_probability: float) -> str:
     if malware_probability >= 0.5:
         return "low"
     return "informational"
+
+
+def classify_evidence_strength(event: Dict) -> str:
+    """Estimate how much single-flow metadata support exists before cross-log correlation."""
+    signal_count = 0
+    if int(event.get("packet_count") or 0) >= 5:
+        signal_count += 1
+    if int(event.get("abs_bytes_total") or 0) >= 4096:
+        signal_count += 1
+    if len(event.get("evidence") or []) >= 3:
+        signal_count += 1
+    if str(event.get("id_resp_p") or "") not in COMMON_SERVICE_PORTS:
+        signal_count += 1
+
+    if signal_count >= 3:
+        return "metadata_pattern"
+    if signal_count >= 1:
+        return "limited_metadata"
+    return "weak_single_connection"
+
+
+def explain_risk(risk_level: str, malware_probability: float) -> str:
+    if risk_level == "high":
+        return (
+            f"模型恶意概率为 {malware_probability:.4f}，属于高风险线索；需要优先关联 Wazuh、Zeek、"
+            "Suricata 和主机日志确认。"
+        )
+    if risk_level == "medium":
+        return f"模型恶意概率为 {malware_probability:.4f}，属于中等风险线索；建议结合时间窗口做证据补强。"
+    if risk_level == "low":
+        return f"模型恶意概率为 {malware_probability:.4f}，仅表示低风险观察项；不应单独升级为安全事件。"
+    return f"模型恶意概率为 {malware_probability:.4f}，当前更接近良性或背景流量；可作为误报对照样本。"
+
+
+def select_benign_controls(
+    scored_events: List[Dict],
+    max_events: int,
+    benign_threshold: float,
+    source_label: str,
+) -> List[Dict]:
+    if max_events <= 0 or not scored_events:
+        return []
+
+    likely_benign = [event for event in scored_events if event["malware_probability"] < benign_threshold]
+    pool = likely_benign or scored_events
+    selection_reason = (
+        f"malware_probability_below_{benign_threshold:.2f}"
+        if likely_benign
+        else "lowest_probability_fallback_no_event_below_threshold"
+    )
+
+    controls = []
+    for event in sorted(pool, key=lambda item: item["malware_probability"])[:max_events]:
+        control = dict(event)
+        control["control_source"] = source_label
+        control["control_selection_reason"] = selection_reason
+        control["benign_threshold"] = benign_threshold
+        controls.append(control)
+    return controls
+
+
+def benign_control_note(controls: List[Dict], requested: bool, source_label: Optional[str]) -> Optional[str]:
+    if not requested:
+        return None
+    if not controls:
+        return f"已请求良性对照样本，但 `{source_label or 'primary_log'}` 中没有可解析连接。"
+    if any(item["control_selection_reason"].startswith("lowest_probability_fallback") for item in controls):
+        return "未找到低于良性阈值的连接，报告展示最低恶意概率样本作为模型偏置/误报边界参考。"
+    return "已选取低于良性阈值的连接作为对照样本，用于和高风险候选事件比较。"
+
+
+def contrast_summary(events: List[Dict], benign_controls: List[Dict]) -> Dict:
+    summary = {
+        "benign_controls_reported": len(benign_controls),
+        "benign_control_max_malware_probability": max(
+            [event["malware_probability"] for event in benign_controls],
+            default=0.0,
+        ),
+        "benign_control_min_malware_probability": min(
+            [event["malware_probability"] for event in benign_controls],
+            default=0.0,
+        ),
+        "risk_contrast_margin": None,
+    }
+    if events and benign_controls:
+        lowest_reported_risk = min(event["malware_probability"] for event in events)
+        highest_control_risk = max(event["malware_probability"] for event in benign_controls)
+        summary["risk_contrast_margin"] = lowest_reported_risk - highest_control_risk
+    return summary
 
 
 def load_knowledge(path: Path) -> List[Dict[str, str]]:
@@ -298,7 +391,9 @@ def compact_events_for_prompt(events: List[Dict]) -> List[Dict]:
             {
                 "event_id": idx,
                 "risk_level": event["risk_level"],
+                "predicted_label": event.get("predicted_label"),
                 "malware_probability": round(event["malware_probability"], 4),
+                "benign_probability": round(event.get("benign_probability", 0.0), 4),
                 "uid": event["uid"],
                 "src": f"{event['id_orig_h']}:{event['id_orig_p']}",
                 "dst": f"{event['id_resp_h']}:{event['id_resp_p']}",
@@ -306,20 +401,33 @@ def compact_events_for_prompt(events: List[Dict]) -> List[Dict]:
                 "abs_bytes_total": event["abs_bytes_total"],
                 "direction_counts": event["direction_counts"],
                 "iat_stats": event["iat_stats"],
+                "evidence_strength": event.get("evidence_strength"),
+                "risk_explanation": event.get("risk_explanation"),
+                "control_source": event.get("control_source"),
+                "control_selection_reason": event.get("control_selection_reason"),
                 "evidence": event["evidence"],
             }
         )
     return compact
 
 
-def build_prompt(events: List[Dict], knowledge_matches: List[Dict]) -> List[Dict[str, str]]:
+def build_prompt(
+    events: List[Dict],
+    knowledge_matches: List[Dict],
+    benign_controls: Optional[List[Dict]] = None,
+    benign_note: Optional[str] = None,
+) -> List[Dict[str, str]]:
     payload = {
         "task": "为安全运营人员生成中文安全审计报告。不要夸大结论，要说明模型误报边界。",
         "events": compact_events_for_prompt(events),
+        "benign_controls": compact_events_for_prompt(benign_controls or []),
+        "benign_control_note": benign_note,
         "knowledge_matches": knowledge_matches,
+        "risk_contrast_summary": contrast_summary(events, benign_controls or []),
         "required_sections": [
             "总体结论",
             "高风险连接摘要",
+            "良性对照与误报边界",
             "可疑依据",
             "可能攻击阶段或安全含义",
             "建议排查动作",
@@ -364,7 +472,15 @@ def call_deepseek(messages: List[Dict[str, str]], timeout: int) -> Optional[str]
     return data["choices"][0]["message"]["content"]
 
 
-def render_rule_based_report(events: List[Dict], knowledge_matches: List[Dict], log_file: Path) -> str:
+def render_rule_based_report(
+    events: List[Dict],
+    knowledge_matches: List[Dict],
+    log_file: Path,
+    benign_controls: Optional[List[Dict]] = None,
+    benign_note: Optional[str] = None,
+) -> str:
+    benign_controls = benign_controls or []
+    contrast = contrast_summary(events, benign_controls)
     lines = [
         "# MineShark 安全分析报告",
         "",
@@ -378,6 +494,12 @@ def render_rule_based_report(events: List[Dict], knowledge_matches: List[Dict], 
         lines.append(
             f"共选取 {len(events)} 条高风险候选连接进行研判，最高恶意概率为 {max_prob:.4f}，其中高风险连接 {high_count} 条。"
         )
+        if benign_controls:
+            lines.append(
+                "同时纳入 "
+                f"{len(benign_controls)} 条良性/低风险对照样本，最高对照恶意概率为 "
+                f"{contrast['benign_control_max_malware_probability']:.4f}。"
+            )
     else:
         lines.append("未发现超过当前阈值的高风险候选连接。")
 
@@ -389,6 +511,9 @@ def render_rule_based_report(events: List[Dict], knowledge_matches: List[Dict], 
                 "",
                 f"- 风险等级：{event['risk_level']}",
                 f"- 恶意概率：{event['malware_probability']:.4f}",
+                f"- 良性概率：{event.get('benign_probability', 0.0):.4f}",
+                f"- 证据强度：{event.get('evidence_strength', 'unknown')}",
+                f"- 风险解释：{event.get('risk_explanation', '需要结合上下文复核。')}",
                 f"- Zeek UID：{event['uid']}",
                 f"- 包数量：{event['packet_count']}，绝对字节量：{event['abs_bytes_total']}",
                 f"- 方向统计：{event['direction_counts']}",
@@ -399,6 +524,40 @@ def render_rule_based_report(events: List[Dict], knowledge_matches: List[Dict], 
         for evidence in event["evidence"]:
             lines.append(f"  - {evidence}")
         lines.append("")
+
+    if benign_note is not None or benign_controls:
+        lines.extend(["## 良性对照样本", ""])
+        if benign_note:
+            lines.append(benign_note)
+            lines.append("")
+        if benign_controls:
+            margin = contrast["risk_contrast_margin"]
+            if margin is not None:
+                lines.append(f"- 高风险候选与对照样本之间的最低概率差距为 {margin:.4f}。")
+            lines.append("- 对照样本只用于展示高低风险边界，不代表白名单或最终业务定性。")
+            lines.append("")
+
+        for idx, event in enumerate(benign_controls, start=1):
+            lines.extend(
+                [
+                    f"### 对照样本 {idx}: {event['id_orig_h']}:{event['id_orig_p']} -> "
+                    f"{event['id_resp_h']}:{event['id_resp_p']}",
+                    "",
+                    f"- 预测标签：{event.get('predicted_label', 'unknown')}",
+                    f"- 风险等级：{event['risk_level']}",
+                    f"- 恶意概率：{event['malware_probability']:.4f}",
+                    f"- 良性概率：{event.get('benign_probability', 0.0):.4f}",
+                    f"- 样本来源：{event.get('control_source', 'unknown')}",
+                    f"- 选择原因：{event.get('control_selection_reason', 'unknown')}",
+                    f"- 证据强度：{event.get('evidence_strength', 'unknown')}",
+                    f"- 风险解释：{event.get('risk_explanation', '当前更接近良性或低风险线索。')}",
+                    f"- Zeek UID：{event['uid']}",
+                    "- 对照依据：",
+                ]
+            )
+            for evidence in event["evidence"]:
+                lines.append(f"  - {evidence}")
+            lines.append("")
 
     lines.extend(["## 知识库参考", ""])
     for item in knowledge_matches:
@@ -438,6 +597,18 @@ def main():
     parser.add_argument("--output-md", default=str(DEFAULT_OUTPUT_MD))
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--max-events", type=int, default=5)
+    parser.add_argument(
+        "--include-benign-sample",
+        action="store_true",
+        help="Include lowest-risk events from the primary log as benign/low-risk controls.",
+    )
+    parser.add_argument(
+        "--benign-log-file",
+        default=None,
+        help="Optional MineShark/Zeek style log used to select benign/low-risk control samples.",
+    )
+    parser.add_argument("--benign-threshold", type=float, default=0.5)
+    parser.add_argument("--max-benign-events", type=int, default=3)
     parser.add_argument("--top-knowledge", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--min-packets", type=int, default=None)
@@ -451,6 +622,7 @@ def main():
 
     checkpoint_path = resolve_path(args.checkpoint)
     log_file = resolve_path(args.log_file)
+    benign_log_file = resolve_path(args.benign_log_file) if args.benign_log_file else None
     knowledge_file = resolve_path(args.knowledge_file)
     output_json = resolve_path(args.output_json)
     output_md = resolve_path(args.output_md)
@@ -475,34 +647,84 @@ def main():
     candidates.sort(key=lambda x: x["malware_probability"], reverse=True)
     selected_events = candidates[: args.max_events]
 
+    benign_controls_requested = args.include_benign_sample or benign_log_file is not None
+    benign_source_label = None
+    benign_scored_events = []
+    if benign_log_file is not None:
+        benign_source_label = str(benign_log_file)
+        raw_benign_events = parse_mineshark_events(
+            log_file=benign_log_file,
+            max_len=max_len,
+            min_packets=min_packets,
+            max_pkt_size=max_pkt_size,
+            max_iat=max_iat,
+        )
+        benign_scored_events = infer_events(model, raw_benign_events, device=device, batch_size=args.batch_size)
+    elif args.include_benign_sample:
+        benign_source_label = str(log_file)
+        benign_scored_events = scored_events
+
+    benign_controls = select_benign_controls(
+        benign_scored_events,
+        max_events=args.max_benign_events,
+        benign_threshold=args.benign_threshold,
+        source_label=benign_source_label or "primary_log",
+    )
+    benign_note = benign_control_note(benign_controls, benign_controls_requested, benign_source_label)
+
     knowledge = load_knowledge(knowledge_file)
-    knowledge_matches = retrieve_knowledge(selected_events, knowledge, args.top_knowledge)
+    knowledge_matches = retrieve_knowledge(selected_events + benign_controls, knowledge, args.top_knowledge)
 
     llm_used = False
     llm_error = None
     if args.no_llm:
-        markdown_report = render_rule_based_report(selected_events, knowledge_matches, log_file)
+        markdown_report = render_rule_based_report(
+            selected_events,
+            knowledge_matches,
+            log_file,
+            benign_controls=benign_controls,
+            benign_note=benign_note,
+        )
     else:
         try:
-            llm_report = call_deepseek(build_prompt(selected_events, knowledge_matches), args.llm_timeout)
+            llm_report = call_deepseek(
+                build_prompt(selected_events, knowledge_matches, benign_controls, benign_note),
+                args.llm_timeout,
+            )
             if llm_report:
                 markdown_report = llm_report.strip() + "\n"
                 llm_used = True
             else:
                 llm_error = "DEEPSEEK_API_KEY is not set; generated rule-based fallback report."
-                markdown_report = render_rule_based_report(selected_events, knowledge_matches, log_file)
+                markdown_report = render_rule_based_report(
+                    selected_events,
+                    knowledge_matches,
+                    log_file,
+                    benign_controls=benign_controls,
+                    benign_note=benign_note,
+                )
         except Exception as exc:
             llm_error = str(exc)
-            markdown_report = render_rule_based_report(selected_events, knowledge_matches, log_file)
+            markdown_report = render_rule_based_report(
+                selected_events,
+                knowledge_matches,
+                log_file,
+                benign_controls=benign_controls,
+                benign_note=benign_note,
+            )
 
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "input": {
             "checkpoint": str(checkpoint_path),
             "log_file": str(log_file),
+            "benign_log_file": str(benign_log_file) if benign_log_file else None,
             "knowledge_file": str(knowledge_file),
             "threshold": args.threshold,
             "max_events": args.max_events,
+            "include_benign_sample": args.include_benign_sample,
+            "benign_threshold": args.benign_threshold,
+            "max_benign_events": args.max_benign_events,
         },
         "model": {
             "class": "TrafficTransformer",
@@ -525,9 +747,19 @@ def main():
             "reported_events": len(selected_events),
             "max_malware_probability": max([event["malware_probability"] for event in scored_events], default=0.0),
             "risk_counts": risk_counts(selected_events),
+            **contrast_summary(selected_events, benign_controls),
         },
         "knowledge_matches": knowledge_matches,
         "events": selected_events,
+        "benign_controls": benign_controls,
+        "benign_control_note": benign_note,
+        "analyst_review_template": {
+            "analyst_verdict": None,
+            "false_positive_candidate": None,
+            "business_context": None,
+            "recommended_feedback_action": None,
+            "review_note": None,
+        },
     }
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
@@ -538,6 +770,8 @@ def main():
     print(f"Loaded valid connections: {len(scored_events)}")
     print(f"Connections above threshold: {len(candidates)}")
     print(f"Reported events: {len(selected_events)}")
+    if benign_controls_requested:
+        print(f"Benign controls reported: {len(benign_controls)}")
     print(f"JSON report: {output_json}")
     print(f"Markdown report: {output_md}")
     if llm_error:

@@ -9,6 +9,13 @@ Scope:
 - AI alert generation and analysis quality improvements.
 - Integration points between model outputs, RAG evidence, and security reports.
 
+Current focus:
+
+- The report generator now supports benign/low-risk control samples through `--include-benign-sample`
+  or `--benign-log-file`.
+- Report JSON and Markdown outputs include risk explanations, evidence strength, contrast margin,
+  and an analyst review template for false-positive feedback.
+
 Non-goals:
 
 - Replacing the stable demo branch behavior without validation.
