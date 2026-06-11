@@ -14,7 +14,7 @@ Current focus:
 - The report generator now supports benign/low-risk control samples through `--include-benign-sample`
   or `--benign-log-file`.
 - Report JSON and Markdown outputs include risk explanations, evidence strength, contrast margin,
-  and an analyst review template for false-positive feedback.
+  and a structured analyst review template for false-positive feedback and evidence-gap tracking.
 
 Non-goals:
 

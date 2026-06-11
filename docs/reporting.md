@@ -56,7 +56,9 @@ python .\scripts\report\generate_audit_report.py `
 - `benign_controls`：被选入报告的低风险/良性对照连接。
 - `benign_control_note`：说明是否命中低于阈值的样本，或是否只能退回到最低概率样本。
 - `summary.risk_contrast_margin`：高风险候选与对照样本之间的恶意概率差距。
-- `analyst_review_template`：人工复核时可填写的误报反馈字段。
+- `analyst_review_template`：人工复核时可填写的误报反馈模板，包含每条候选事件和良性对照样本的 UID、流向、模型概率、证据缺口和反馈动作字段。
+
+`analyst_review_template` 只用于记录复核结论与后续训练/阈值优化线索，不会写回 Wazuh，也不会触发自动封禁或生产处置。
 
 ## DeepSeek API 模式
 

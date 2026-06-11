@@ -324,6 +324,53 @@ def contrast_summary(events: List[Dict], benign_controls: List[Dict]) -> Dict:
     return summary
 
 
+def review_template_item(event: Dict, *, sample_role: str) -> Dict:
+    item = {
+        "sample_role": sample_role,
+        "uid": event.get("uid"),
+        "flow": f"{event.get('id_orig_h')}:{event.get('id_orig_p')} -> {event.get('id_resp_h')}:{event.get('id_resp_p')}",
+        "model_risk_level": event.get("risk_level"),
+        "model_malware_probability": round(float(event.get("malware_probability", 0.0)), 4),
+        "model_benign_probability": round(float(event.get("benign_probability", 0.0)), 4),
+        "evidence_strength": event.get("evidence_strength"),
+        "evidence_gaps_to_check": [
+            "wazuh_or_suricata_alert_match",
+            "zeek_uid_time_window_context",
+            "asset_owner_or_business_system",
+            "dns_http_tls_context",
+            "host_process_or_login_activity",
+        ],
+        "analyst_verdict": None,
+        "false_positive_candidate": None,
+        "business_context": None,
+        "recommended_feedback_action": None,
+        "review_note": None,
+    }
+    if sample_role == "benign_control":
+        item["control_source"] = event.get("control_source")
+        item["control_selection_reason"] = event.get("control_selection_reason")
+        item["use_as_negative_feedback"] = None
+    return item
+
+
+def build_analyst_review_template(events: List[Dict], benign_controls: List[Dict]) -> Dict:
+    return {
+        "review_guidance": (
+            "先把模型输出视为风险线索，按证据缺口补查 Wazuh/Zeek/Suricata/主机与业务上下文；"
+            "人工确认后再决定是否作为误报反馈、阈值调整或知识库补充样本。"
+        ),
+        "analyst_verdict": None,
+        "false_positive_candidate": None,
+        "business_context": None,
+        "recommended_feedback_action": None,
+        "review_note": None,
+        "event_reviews": [review_template_item(event, sample_role="reported_event") for event in events],
+        "benign_control_reviews": [
+            review_template_item(event, sample_role="benign_control") for event in benign_controls
+        ],
+    }
+
+
 def load_knowledge(path: Path) -> List[Dict[str, str]]:
     records = []
     if not path.exists():
@@ -424,6 +471,7 @@ def build_prompt(
         "benign_control_note": benign_note,
         "knowledge_matches": knowledge_matches,
         "risk_contrast_summary": contrast_summary(events, benign_controls or []),
+        "analyst_review_template": build_analyst_review_template(events, benign_controls or []),
         "required_sections": [
             "总体结论",
             "高风险连接摘要",
@@ -753,13 +801,7 @@ def main():
         "events": selected_events,
         "benign_controls": benign_controls,
         "benign_control_note": benign_note,
-        "analyst_review_template": {
-            "analyst_verdict": None,
-            "false_positive_candidate": None,
-            "business_context": None,
-            "recommended_feedback_action": None,
-            "review_note": None,
-        },
+        "analyst_review_template": build_analyst_review_template(selected_events, benign_controls),
     }
 
     output_json.parent.mkdir(parents=True, exist_ok=True)

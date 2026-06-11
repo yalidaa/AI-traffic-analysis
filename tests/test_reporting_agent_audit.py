@@ -10,6 +10,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from mineshark.reporting.agent_audit import (
+    build_analyst_review_template,
     build_prompt,
     contrast_summary,
     render_rule_based_report,
@@ -98,6 +99,27 @@ class ReportingAgentAuditTests(unittest.TestCase):
         self.assertEqual(payload["benign_controls"][0]["uid"], "control")
         self.assertIn("良性对照与误报边界", payload["required_sections"])
         self.assertEqual(payload["risk_contrast_summary"], contrast_summary([high_event], control))
+        self.assertEqual(payload["analyst_review_template"]["event_reviews"][0]["uid"], "high")
+        self.assertEqual(
+            payload["analyst_review_template"]["benign_control_reviews"][0]["sample_role"],
+            "benign_control",
+        )
+
+    def test_analyst_review_template_tracks_event_and_control_feedback_fields(self):
+        high_event = make_event("high", 0.95, "high")
+        control = select_benign_controls(
+            [make_event("control", 0.08)],
+            max_events=1,
+            benign_threshold=0.5,
+            source_label="benign.log",
+        )
+        template = build_analyst_review_template([high_event], control)
+
+        self.assertEqual(template["analyst_verdict"], None)
+        self.assertEqual(template["event_reviews"][0]["uid"], "high")
+        self.assertIn("wazuh_or_suricata_alert_match", template["event_reviews"][0]["evidence_gaps_to_check"])
+        self.assertEqual(template["benign_control_reviews"][0]["uid"], "control")
+        self.assertIn("use_as_negative_feedback", template["benign_control_reviews"][0])
 
 
 if __name__ == "__main__":
