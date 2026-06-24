@@ -1,24 +1,42 @@
-# MineShark Console / AI Traffic Analysis
+# MineShark：AI 加密流量分析与安全研判系统
 
-`demo_jianli` 分支是 MineShark 面向 Wazuh 实验环境的最新演示分支。它把已有的加密流量 AI 告警、Wazuh 告警、Zeek/Suricata 日志和 RAG 安全知识库串起来，提供两种入口：
+MineShark 是一个面向网络安全场景的 AI 应用原型。项目在 Wazuh、Zeek、Suricata 等安全监测底座之上，补充加密流量 AI 检测、证据聚合、RAG 安全知识检索和中文研判报告生成能力，用于把原始安全告警转化为更适合人工复核的事件说明。
 
-- **MineShark Console**：深色 SOC 风格 Web 控制台，用于展示风险态势、AI 告警、证据拓扑、报告中心和任务历史。
-- **LangGraph Agent CLI**：旁路读取现有日志和告警，调用 DeepSeek 生成中文安全研判报告。
+本项目适合作为参赛展示或团队协作项目：它不是单纯的模型训练脚本，也不是完全自动化的 SOC 平台，而是一个能够从日志、模型输出、规则告警和知识库证据中生成安全分析结论的轻量级 AI 安全分析系统。
 
-本分支不替换现有实时检测服务，不写回 Wazuh，不做自动封禁或自动处置。模型概率只作为风险线索，最终结论需要结合 Wazuh、Zeek、Suricata、RAG 和人工复核。
+## 项目目标
 
-## Current Demo Flow
+- 从 Zeek、Suricata、Wazuh 和 MineShark AI 告警中读取安全事件线索。
+- 使用流量模型、规则证据和 RAG 知识库辅助判断风险。
+- 调用 DeepSeek 或规则兜底逻辑生成中文安全研判报告。
+- 提供 MineShark Console Web 控制台，展示告警、证据拓扑、报告和任务历史。
+- 保留训练与数据准备能力，支持后续优化模型和对照实验。
+- 明确人工复核边界，避免把模型输出包装成自动处置结论。
+
+## 核心能力
+
+| 模块 | 作用 | 主要入口 |
+| --- | --- | --- |
+| AI 流量分析 | 读取流量特征，训练或复用 Transformer 模型，输出风险线索 | `scripts/train/`、`src/mineshark/training/` |
+| Agent 研判 | 聚合 AI 告警、Wazuh、Zeek、Suricata 和 RAG 证据，生成中文报告 | `scripts/agent/run_agent_audit.py`、`mineshark-agent-audit` |
+| RAG 知识库 | 基于本地安全知识条目构建 FAISS 索引，辅助解释告警 | `scripts/rag/build_index.py`、`mineshark-build-rag` |
+| Web 控制台 | 提供只读 API、任务触发、报告中心和 SOC 风格前端 | `mineshark-console`、`web/frontend/` |
+| 数据准备 | 将日志转换为训练和评估所需的 PPI CSV 等实验数据 | `scripts/data/`、`src/mineshark/data/` |
+| 报告复核 | 输出风险解释、证据强度、对照差距和人工复核模板 | `src/mineshark/reporting/` |
+
+## 系统流程
 
 ```text
-MineShark live AI engine
-  -> /var/log/ai_alerts.json
-  -> Wazuh rule / alerts
-  -> MineShark Agent evidence aggregation
-  -> DeepSeek / rule fallback report
-  -> MineShark Console
+Zeek / Suricata / Wazuh / MineShark AI
+  -> 本地日志和告警文件
+  -> 证据聚合与质量检查
+  -> RAG 安全知识检索
+  -> DeepSeek 或规则兜底生成中文研判
+  -> Markdown / JSON 报告
+  -> MineShark Console 展示
 ```
 
-关键输出：
+常见输出文件：
 
 ```text
 outputs/reports/agent_audit_report.json
@@ -26,35 +44,35 @@ outputs/reports/agent_audit_report.md
 outputs/console/mineshark_console.sqlite3
 ```
 
-## Project Layout
+## 目录结构
 
 ```text
 .
-├── configs/                  # 环境、RAG 知识库和报告配置
-├── docs/                     # 分支讲解、Console、Wazuh/Agent 文档
+├── configs/                  # 环境配置、RAG 知识库和报告配置
+├── docs/                     # 项目说明、分支说明、部署和演示文档
 ├── scripts/
 │   ├── agent/                # Agent 演示与运行脚本
 │   ├── data/                 # 数据准备脚本
 │   ├── rag/                  # RAG 索引构建脚本
-│   ├── report/               # 旧版离线报告入口
+│   ├── report/               # 离线报告入口
 │   └── train/                # 模型训练入口
 ├── src/mineshark/
-│   ├── agent/                # LangGraph Agent、证据聚合、质量检查
-│   ├── integrations/         # Wazuh API / 本地告警回退
-│   ├── rag/                  # FAISS RAG 存储和 DashScope embedding
+│   ├── agent/                # LangGraph Agent、证据聚合和质量检查
+│   ├── integrations/         # Wazuh API 和本地告警回退
+│   ├── rag/                  # FAISS RAG 存储和 embedding
 │   ├── sensors/              # AI 告警、Zeek、Suricata 读取
-│   ├── training/             # Transformer 训练
+│   ├── training/             # Transformer 训练逻辑
 │   └── web/                  # FastAPI MineShark Console 后端
 ├── tests/                    # 单元测试和 demo fixture
-├── web/frontend/             # React/Vite MineShark Console 前端
-├── datasets/                 # 本地数据集，Git 忽略
-├── checkpoints/              # 本地模型权重，Git 忽略
-└── outputs/                  # 报告、RAG、Console 运行产物，Git 忽略
+├── web/frontend/             # React/Vite 控制台前端
+├── datasets/                 # 本地数据集目录，Git 默认忽略
+├── checkpoints/              # 本地模型权重目录，Git 默认忽略
+└── outputs/                  # 报告、RAG、Console 运行产物，Git 默认忽略
 ```
 
-## Install
+## 快速开始
 
-基础 Agent / RAG / Wazuh 旁路研判：
+建议使用 Python 3.10 或更高版本。
 
 ```bash
 python3 -m venv .venv
@@ -63,33 +81,33 @@ python -m pip install -U pip
 pip install -e .
 ```
 
-MineShark Console 后端：
+如果需要运行 Web 控制台：
 
 ```bash
 pip install -e ".[web]"
 ```
 
-如果需要训练模型或显式使用 `--rerun-model`，再安装 ML 依赖：
+如果需要训练模型或重新运行模型推理：
 
 ```bash
 pip install -e ".[ml]"
 ```
 
-Windows 训练机可参考 Conda 环境快照：
+如果团队使用 `uv` 统一开发环境：
 
-```text
-configs/env/traffic_env.yaml
+```bash
+uv sync --extra web --extra ml --dev
 ```
 
-## Configuration
+## 环境配置
 
-复制 `.env.example` 为 `.env`，在 Wazuh VM 中填写真实凭据和路径：
+复制 `.env.example` 为 `.env`，再按实际环境填写密钥、Wazuh 地址和日志路径：
 
 ```bash
 cp .env.example .env
 ```
 
-关键变量：
+常用配置项：
 
 ```text
 DEEPSEEK_API_KEY=...
@@ -103,11 +121,11 @@ WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
 MINESHARK_AI_ALERTS_PATH=/var/log/ai_alerts.json
 ```
 
-## MineShark Console
+`.env` 只在本地使用，不要提交真实密钥或服务器凭据。
 
-Console 是本分支最新的前端入口。它由 FastAPI 提供只读 API 和任务接口，由 React/Vite 构建静态前端，并由 FastAPI 在同一端口托管。
+## 运行 MineShark Console
 
-前端构建只在开发/部署阶段需要 Node：
+前端只在构建阶段需要 Node.js：
 
 ```bash
 cd web/frontend
@@ -122,21 +140,13 @@ cd ../..
 mineshark-console --host 0.0.0.0 --port 8008
 ```
 
-访问：
+浏览器访问：
 
 ```text
-http://<vm-ip>:8008
+http://<服务器或虚拟机IP>:8008
 ```
 
-Console 支持：
-
-- 总览：AI 告警数、高危线索、数据源健康、最近任务和报告状态。
-- AI 告警：按 IP、UID、Alert ID、阈值筛选 `/var/log/ai_alerts.json`。
-- 证据拓扑：展示 MineShark AI、Wazuh、Zeek、Suricata、RAG 和报告之间的关系。
-- 报告中心：查看 Agent 生成的 Markdown / JSON 报告快照。
-- 任务历史：查看 `preflight`、`evidence-only`、`agent-report` 的执行状态。
-
-网页允许触发的任务范围：
+Console 支持查看总览、AI 告警、证据拓扑、报告中心和任务历史。网页端允许触发的任务范围为：
 
 ```text
 preflight
@@ -144,15 +154,9 @@ evidence-only
 agent-report
 ```
 
-网页不触发 RAG 重建，也不启用 `rerun-model`。
+网页端不负责重建 RAG，不开启 `rerun-model`，也不执行自动封禁或自动处置。
 
-更多说明见：
-
-```text
-docs/mineshark_console.md
-```
-
-## LangGraph Agent CLI
+## 运行 Agent 研判
 
 构建 RAG 索引：
 
@@ -185,21 +189,22 @@ python scripts/agent/run_agent_audit.py --env-file .env --preflight-only
 python scripts/agent/run_agent_audit.py --env-file .env --evidence-only --uid Cdemo1
 ```
 
-详细说明见：
+更多说明：
 
 ```text
 docs/agent_rag_wazuh.md
 docs/demo_jianli_walkthrough.md
+docs/mineshark_console.md
 ```
 
-## Training And Data Preparation
+## 模型训练与数据准备
 
-训练入口仍然保留，但不是 `demo_jianli` 分支的主要演示路径。
+训练入口仍然保留，主要用于模型迭代和参赛前的实验补充。
 
 训练模型：
 
-```powershell
-python .\scripts\train\train_model.py --experiment latest
+```bash
+python scripts/train/train_model.py --experiment latest
 ```
 
 常用实验预设：
@@ -213,32 +218,24 @@ ppi_hybrid_latest
 custom
 ```
 
-转换 MineShark/Zeek 风格日志为 PPI CSV：
+将 MineShark/Zeek 风格日志转换为 PPI CSV：
 
-```powershell
-python .\scripts\data\prepare_ppi_from_logs.py `
-  --log-dir datasets/raw/logs_benign `
-  --out-dir datasets/experiments/ppi/local_benign `
+```bash
+python scripts/data/prepare_ppi_from_logs.py \
+  --log-dir datasets/raw/logs_benign \
+  --out-dir datasets/experiments/ppi/local_benign \
   --app-label benign
 ```
 
 准备实验目录：
 
-```powershell
-python .\scripts\data\prepare_experiment_data.py
-```
-
-安全说明：数据准备脚本不会自动清空已有非空输出目录。如需清理实验目录，请人工确认后手动处理。
-
-## Tests And Formatting
-
-同步开发、Web 和机器学习依赖：
-
 ```bash
-uv sync --extra web --extra ml --dev
+python scripts/data/prepare_experiment_data.py
 ```
 
-运行静态检查、格式检查和全部测试：
+数据准备脚本不会自动清空已有非空输出目录。如需清理实验目录，请人工确认后手动处理。
+
+## 测试与格式检查
 
 ```bash
 uv run ruff check src tests
@@ -246,23 +243,46 @@ uv run ruff format --check src tests
 uv run pytest
 ```
 
-GitHub Actions 会在每次 push 和 pull request 时自动运行相同检查。
+GitHub Actions 会在 push 和 pull request 时运行 Python 检查。
 
-构建前端：
+## 分支协作建议
 
-```bash
-cd web/frontend
-npm run build
-```
+当前仓库主要分支含义如下：
 
-## Git Policy
+| 分支 | 定位 |
+| --- | --- |
+| `main` | GitHub 默认分支，目前落后于演示分支 |
+| `demo_jianli` | MineShark Console、Wazuh 旁路 Agent、RAG 和演示流程的稳定基线 |
+| `training` | 在 `demo_jianli` 基础上继续补充训练、报告质量和人工复核能力 |
 
-仓库跟踪源码、脚本、配置和文档；不跟踪以下本地运行产物：
+参赛协作建议：
 
-- datasets 和 packet captures
-- 生成的 PPI CSV、日志和实验输出
-- 模型 checkpoint
-- `outputs/` 下的报告、RAG 和 Console SQLite
-- Python / Node 缓存和本地环境
+- 如果团队重点展示完整 Web 控制台和 Wazuh/Agent 演示，优先基于 `demo_jianli`。
+- 如果团队还要展示模型训练、良性对照、报告质量评估和人工复核模板，优先基于 `training`。
+- 不建议直接以落后的 `main` 作为参赛开发基线，除非先把 `demo_jianli` 或 `training` 合回。
+- 合并前先跑测试，避免把演示能力、训练能力和文档状态拆散。
 
-这保证 GitHub 仓库保持轻量，同时保留本地 Wazuh VM 演示所需的目录结构。
+## 安全边界
+
+MineShark 输出的是风险线索和辅助研判，不是最终安全处置结论。
+
+项目当前不做：
+
+- 不替换现有 Wazuh、Zeek 或 Suricata 服务。
+- 不写回 Wazuh 告警状态。
+- 不自动封禁 IP、隔离主机或修改防火墙。
+- 不把模型概率当作唯一判定依据。
+
+建议在参赛展示中明确说明：最终结论需要结合 Wazuh、Zeek、Suricata、RAG 证据和人工复核。
+
+## Git 跟踪策略
+
+仓库跟踪源码、脚本、配置模板、测试和文档；不跟踪以下本地运行产物：
+
+- 数据集和 packet captures。
+- 生成的 PPI CSV、日志和实验输出。
+- 模型 checkpoint。
+- `outputs/` 下的报告、RAG 索引和 Console SQLite。
+- Python / Node 缓存和本地虚拟环境。
+
+这样可以保证 GitHub 仓库保持轻量，同时保留本地或服务器演示所需的目录结构。
