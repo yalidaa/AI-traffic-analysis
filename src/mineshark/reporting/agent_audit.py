@@ -171,6 +171,10 @@ def load_model(checkpoint_path: Path, device):
     torch, TrafficTransformer = require_ml_dependencies()
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint.get("config", {})
+    if "calibrated_threshold" in checkpoint:
+        config["calibrated_threshold"] = checkpoint["calibrated_threshold"]
+    if "calibration_target_fpr" in checkpoint:
+        config["calibration_target_fpr"] = checkpoint["calibration_target_fpr"]
     max_pkt_size = int(config.get("max_pkt_size", 2000))
     max_len = int(config.get("max_len", 128))
 
@@ -643,7 +647,12 @@ def main():
     parser.add_argument("--knowledge-file", default=str(DEFAULT_KNOWLEDGE_PATH))
     parser.add_argument("--output-json", default=str(DEFAULT_OUTPUT_JSON))
     parser.add_argument("--output-md", default=str(DEFAULT_OUTPUT_MD))
-    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Malware probability threshold. Defaults to checkpoint calibrated_threshold, then 0.5.",
+    )
     parser.add_argument("--max-events", type=int, default=5)
     parser.add_argument(
         "--include-benign-sample",
@@ -678,6 +687,7 @@ def main():
     device = torch.device(args.device)
 
     model, config = load_model(checkpoint_path, device)
+    effective_threshold = float(args.threshold if args.threshold is not None else config.get("calibrated_threshold", 0.5))
     max_len = int(args.max_len or config.get("max_len", 128))
     min_packets = int(args.min_packets or config.get("min_packets", 3))
     max_pkt_size = int(args.max_pkt_size or config.get("max_pkt_size", 2000))
@@ -691,7 +701,7 @@ def main():
         max_iat=max_iat,
     )
     scored_events = infer_events(model, raw_events, device=device, batch_size=args.batch_size)
-    candidates = [event for event in scored_events if event["malware_probability"] >= args.threshold]
+    candidates = [event for event in scored_events if event["malware_probability"] >= effective_threshold]
     candidates.sort(key=lambda x: x["malware_probability"], reverse=True)
     selected_events = candidates[: args.max_events]
 
@@ -768,7 +778,8 @@ def main():
             "log_file": str(log_file),
             "benign_log_file": str(benign_log_file) if benign_log_file else None,
             "knowledge_file": str(knowledge_file),
-            "threshold": args.threshold,
+            "threshold": effective_threshold,
+            "threshold_source": "cli" if args.threshold is not None else "checkpoint_or_default",
             "max_events": args.max_events,
             "include_benign_sample": args.include_benign_sample,
             "benign_threshold": args.benign_threshold,

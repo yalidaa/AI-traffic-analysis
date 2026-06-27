@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
@@ -128,10 +128,10 @@ def move_triplet_batch(batch, device):
     )
 
 
-def evaluate(model, loader, device):
+def predict_scores(model, loader, device):
     model.eval()
-    preds = []
     labels = []
+    malware_probs = []
 
     with torch.no_grad():
         for batch in loader:
@@ -142,13 +142,76 @@ def evaluate(model, loader, device):
                 batch["dirs"],
                 attention_mask=batch["mask"],
             )
-            pred = torch.argmax(logits, dim=1)
-            preds.extend(pred.cpu().tolist())
             labels.extend(batch["label"].cpu().tolist())
+            probs = torch.softmax(logits, dim=1)
+            malware_probs.extend(probs[:, 1].cpu().tolist())
 
-    acc = accuracy_score(labels, preds)
-    f1 = f1_score(labels, preds, labels=[0, 1], average="binary", zero_division=0)
-    return acc, f1, labels, preds
+    return labels, malware_probs
+
+
+def metrics_at_threshold(labels, malware_probs, threshold: float):
+    preds = [1 if prob >= threshold else 0 for prob in malware_probs]
+    tp = sum(1 for y, p in zip(labels, preds) if y == 1 and p == 1)
+    fp = sum(1 for y, p in zip(labels, preds) if y == 0 and p == 1)
+    tn = sum(1 for y, p in zip(labels, preds) if y == 0 and p == 0)
+    fn = sum(1 for y, p in zip(labels, preds) if y == 1 and p == 0)
+
+    return {
+        "threshold": float(threshold),
+        "accuracy": accuracy_score(labels, preds),
+        "precision": precision_score(labels, preds, zero_division=0),
+        "recall": recall_score(labels, preds, zero_division=0),
+        "f1": f1_score(labels, preds, labels=[0, 1], average="binary", zero_division=0),
+        "fpr": fp / max(fp + tn, 1),
+        "fnr": fn / max(fn + tp, 1),
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "preds": preds,
+    }
+
+
+def select_threshold(labels, malware_probs, target_fpr: float):
+    if not 0.0 <= target_fpr <= 1.0:
+        raise ValueError("--target-fpr must be between 0.0 and 1.0")
+
+    candidates = {0.0, 1.0, 0.5}
+    for prob in malware_probs:
+        value = float(prob)
+        candidates.add(value)
+        candidates.add(min(1.0, value + 1e-7))
+    candidates = sorted(candidates)
+    scored = [metrics_at_threshold(labels, malware_probs, threshold) for threshold in candidates]
+
+    feasible = [item for item in scored if item["fpr"] <= target_fpr]
+    pool = feasible or scored
+    return max(
+        pool,
+        key=lambda item: (
+            item["f1"],
+            item["recall"],
+            item["precision"],
+            -item["fpr"],
+            -abs(item["threshold"] - 0.5),
+        ),
+    )
+
+
+def evaluate(model, loader, device, threshold: float = 0.5):
+    labels, malware_probs = predict_scores(model, loader, device)
+    metrics = metrics_at_threshold(labels, malware_probs, threshold)
+    return metrics["accuracy"], metrics["f1"], labels, metrics["preds"]
+
+
+def print_operating_metrics(name, metrics):
+    print(
+        f"{name} threshold={metrics['threshold']:.4f} "
+        f"acc={metrics['accuracy']:.4f} precision={metrics['precision']:.4f} "
+        f"recall={metrics['recall']:.4f} f1={metrics['f1']:.4f} "
+        f"fpr={metrics['fpr']:.4f} fnr={metrics['fnr']:.4f} "
+        f"tp={metrics['tp']} fp={metrics['fp']} tn={metrics['tn']} fn={metrics['fn']}"
+    )
 
 
 def count_labels(samples):
@@ -348,6 +411,8 @@ def main(args, parser):
         )
 
         if val_f1 > best_val_f1 + args.early_stop_min_delta:
+            val_labels, val_probs = predict_scores(model, val_loader, device)
+            calibrated = select_threshold(val_labels, val_probs, target_fpr=args.target_fpr)
             best_val_f1 = val_f1
             best_epoch = epoch
             no_improve_epochs = 0
@@ -357,6 +422,11 @@ def main(args, parser):
                     "config": vars(args),
                     "best_val_f1": best_val_f1,
                     "best_epoch": best_epoch,
+                    "calibrated_threshold": calibrated["threshold"],
+                    "calibration_target_fpr": args.target_fpr,
+                    "validation_operating_metrics": {
+                        key: value for key, value in calibrated.items() if key != "preds"
+                    },
                 },
                 args.save_path,
             )
@@ -375,13 +445,21 @@ def main(args, parser):
     checkpoint = torch.load(args.save_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
 
-    test_acc, test_f1, y_true, y_pred = evaluate(model, test_loader, device)
-    print(f"Test Accuracy: {test_acc:.4f}")
-    print(f"Test F1-score: {test_f1:.4f}")
+    calibrated_threshold = float(checkpoint.get("calibrated_threshold", args.decision_threshold))
+    val_metrics = checkpoint.get("validation_operating_metrics")
+    if val_metrics:
+        print_operating_metrics("Validation calibrated", val_metrics)
+
+    test_labels, test_probs = predict_scores(model, test_loader, device)
+    default_metrics = metrics_at_threshold(test_labels, test_probs, args.decision_threshold)
+    calibrated_metrics = metrics_at_threshold(test_labels, test_probs, calibrated_threshold)
+
+    print_operating_metrics("Test default", default_metrics)
+    print_operating_metrics("Test calibrated", calibrated_metrics)
     print(
         classification_report(
-            y_true,
-            y_pred,
+            test_labels,
+            calibrated_metrics["preds"],
             labels=[0, 1],
             target_names=["Benign", "Malware"],
             digits=4,
@@ -424,6 +502,18 @@ def build_parser():
     parser.add_argument("--cls-weight", type=float, default=1.0)
     parser.add_argument("--triplet-weight", type=float, default=1.0)
     parser.add_argument("--label-smoothing", type=float, default=0.0)
+    parser.add_argument(
+        "--decision-threshold",
+        type=float,
+        default=0.5,
+        help="Default malware probability threshold used as a baseline report.",
+    )
+    parser.add_argument(
+        "--target-fpr",
+        type=float,
+        default=0.05,
+        help="Maximum validation false-positive rate used to calibrate the saved operating threshold.",
+    )
 
     parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--val-size", type=float, default=0.2)
