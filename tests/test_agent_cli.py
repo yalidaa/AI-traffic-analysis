@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mineshark.agent.cli import build_llm_kwargs, build_user_request, serialise_messages
+from mineshark.agent.cli import build_llm_kwargs, build_user_request, render_evidence_only_markdown, serialise_messages
 from mineshark.config import RuntimeConfig
 
 
@@ -47,6 +47,32 @@ class AgentCliTests(unittest.TestCase):
         self.assertIn("demo-alert-001", text)
         self.assertIn("/var/log/ai_alerts.json", text)
         self.assertIn("sidecar_read_existing_ai_alerts", text)
+
+    def test_evidence_only_markdown_is_report_quality_ready(self):
+        markdown = render_evidence_only_markdown(
+            {
+                "selected_alerts": [
+                    {
+                        "alert_id": "demo-alert-001",
+                        "uid": "Cdemo1",
+                        "src_ip": "10.0.0.5",
+                        "prediction": "malware",
+                        "_mineshark_score": 0.93,
+                    }
+                ],
+                "query_keys": {"alert_id": "demo-alert-001", "uid": "Cdemo1", "ip": "10.0.0.5"},
+                "wazuh_evidence": {"source": "local_alerts_json", "alerts": [{"rule": {"id": "100500"}}]},
+                "zeek_context": {"events": [{"uid": "Cdemo1"}]},
+                "suricata_alerts": {"alerts": [{"alert": {"signature": "Possible C2"}}]},
+                "rag_matches": {"matches": [{"title": "C2", "recommendation": "人工复核"}]},
+            }
+        )
+        self.assertIn("MineShark AI 告警摘要", markdown)
+        self.assertIn("Wazuh", markdown)
+        self.assertIn("Zeek", markdown)
+        self.assertIn("Suricata", markdown)
+        self.assertIn("RAG 知识依据", markdown)
+        self.assertIn("误报与局限性提示", markdown)
 
     def test_build_llm_kwargs_enables_thinking_without_temperature(self):
         config = RuntimeConfig(

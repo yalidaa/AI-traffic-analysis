@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -47,11 +48,36 @@ def _matches_uid(record: Dict[str, Any], uid: Optional[str]) -> bool:
     return not uid or str(record.get("uid", "")) == uid
 
 
+def _time_to_epoch(value: Optional[str]) -> Optional[float]:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def _within_time(record: Dict[str, Any], start_time: Optional[str], end_time: Optional[str]) -> bool:
     if not start_time and not end_time:
         return True
     ts = str(record.get("ts") or record.get("timestamp") or record.get("@timestamp") or "")
     if not ts:
+        return True
+    ts_epoch = _time_to_epoch(ts)
+    start_epoch = _time_to_epoch(start_time)
+    end_epoch = _time_to_epoch(end_time)
+    if ts_epoch is not None and (start_epoch is not None or end_epoch is not None):
+        if start_epoch is not None and ts_epoch < start_epoch:
+            return False
+        if end_epoch is not None and ts_epoch > end_epoch:
+            return False
         return True
     if start_time and ts < start_time:
         return False

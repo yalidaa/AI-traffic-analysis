@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from mineshark.config import RuntimeConfig, resolve_project_path
 from mineshark.integrations.wazuh import WazuhServerClient, query_alerts_with_fallback
 from mineshark.rag.embeddings import QwenEmbeddingClient
-from mineshark.rag.store import FaissKnowledgeStore
+from mineshark.rag.store import FaissKnowledgeStore, load_knowledge_jsonl
 from mineshark.sensors.ai_alerts import query_mineshark_ai_alerts as read_mineshark_ai_alerts
 from mineshark.sensors.logs import query_suricata_alerts, query_zeek_context
 
@@ -24,6 +25,26 @@ def _trim_jsonable(payload: Any, max_chars: int = 6000) -> Any:
     if len(text) <= max_chars:
         return payload
     return {"truncated": True, "preview": text[:max_chars]}
+
+
+def _query_terms(query: str) -> List[str]:
+    return [term for term in re.split(r"[^0-9A-Za-z_\u4e00-\u9fff]+", query.lower()) if len(term) >= 2]
+
+
+def _search_knowledge_jsonl(path, query: str, top_k: int) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    terms = _query_terms(query)
+    scored = []
+    for record in load_knowledge_jsonl(path):
+        text = record.text.lower()
+        lexical_score = sum(1 for term in terms if term in text)
+        item = record.to_metadata()
+        item["score"] = float(lexical_score)
+        item["retrieval_mode"] = "jsonl_fallback"
+        scored.append((lexical_score, item))
+    scored.sort(key=lambda pair: (pair[0], pair[1].get("title", "")), reverse=True)
+    return [item for _, item in scored[:top_k]]
 
 
 class AgentToolbox:
@@ -266,7 +287,15 @@ class AgentToolbox:
             matches = self._rag_store.search(query, top_k=selected_top_k)
             result = {"matches": matches, "error": None}
         except Exception as exc:
-            result = {"matches": [], "error": str(exc)}
+            fallback_matches = _search_knowledge_jsonl(self.config.knowledge_file, query, selected_top_k)
+            if fallback_matches:
+                result = {
+                    "matches": fallback_matches,
+                    "error": f"FAISS RAG unavailable; used JSONL playbook fallback: {exc}",
+                    "fallback": "knowledge_jsonl",
+                }
+            else:
+                result = {"matches": [], "error": str(exc)}
         return self._record(
             "retrieve_security_knowledge",
             {"query": query, "top_k": selected_top_k},

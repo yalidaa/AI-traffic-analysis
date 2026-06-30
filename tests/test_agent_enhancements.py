@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 from mineshark.agent.evidence import build_evidence_bundle
 from mineshark.agent.preflight import run_preflight
 from mineshark.agent.quality import evaluate_report_quality
+from mineshark.agent.toolbox import AgentToolbox
 from mineshark.config import RuntimeConfig
 from mineshark.integrations.wazuh import read_local_alerts
 from mineshark.sensors.ai_alerts import query_mineshark_ai_alerts
@@ -176,6 +177,14 @@ class AgentEnhancementTests(unittest.TestCase):
         self.assertEqual(wazuh[0]["rule"]["id"], "100500")
         self.assertEqual(zeek["events"][0]["uid"], "Cdemo1")
         self.assertIn("C2", suricata["alerts"][0]["alert"]["signature"])
+
+    def test_rag_jsonl_fallback_keeps_offline_demo_useful(self):
+        fixture = ROOT / "tests" / "fixtures" / "demo_event"
+        toolbox = AgentToolbox(make_config(fixture), top_k=2)
+        result = toolbox.retrieve_security_knowledge("C2 Wazuh Zeek Suricata", top_k=2)
+        self.assertEqual(result["fallback"], "knowledge_jsonl")
+        self.assertIn("C2 Beacon Evidence", result["matches"][0]["title"])
+        self.assertIn("FAISS RAG unavailable", result["error"])
 
 
 if __name__ == "__main__":

@@ -92,6 +92,103 @@ def build_user_request(args: argparse.Namespace, evidence_bundle: Optional[Dict[
     )
 
 
+def _score(alert: Dict[str, Any]) -> Any:
+    return alert.get("_mineshark_score") or alert.get("malware_probability") or alert.get("probability")
+
+
+def _count_items(section: Dict[str, Any], key: str) -> int:
+    value = section.get(key)
+    return len(value) if isinstance(value, list) else 0
+
+
+def render_evidence_only_markdown(evidence_bundle: Dict[str, Any]) -> str:
+    alerts = evidence_bundle.get("selected_alerts", [])
+    query_keys = evidence_bundle.get("query_keys", {})
+    wazuh = evidence_bundle.get("wazuh_evidence", {})
+    zeek = evidence_bundle.get("zeek_context", {})
+    suricata = evidence_bundle.get("suricata_alerts", {})
+    rag = evidence_bundle.get("rag_matches", {})
+    primary = alerts[0] if alerts else {}
+    score = _score(primary)
+    score_text = f"{float(score):.3f}" if isinstance(score, (int, float)) else str(score or "未知")
+    uid = query_keys.get("uid") or primary.get("uid") or primary.get("_mineshark_uid") or "未知"
+    alert_id = query_keys.get("alert_id") or primary.get("alert_id") or primary.get("_mineshark_alert_id") or "未知"
+    ip = query_keys.get("ip") or primary.get("src_ip") or primary.get("srcip") or "未知"
+
+    lines = [
+        "# MineShark EvidenceBundle 确定性研判报告",
+        "",
+        "## 总体结论",
+        "",
+        (
+            f"本次离线/确定性研判围绕告警 `{alert_id}` 展开。MineShark AI 告警数量为 {len(alerts)}，"
+            f"主线 UID 为 `{uid}`，源地址为 `{ip}`，模型风险分为 {score_text}。"
+            "该分数只能作为加密流量元数据风险线索，不能直接等同于攻击事实。"
+        ),
+        "",
+        "## 时间线或事件脉络",
+        "",
+        f"- 查询键：alert_id={alert_id}，uid={uid}，ip={ip}。",
+        f"- Wazuh 告警命中数：{_count_items(wazuh, 'alerts')}。",
+        f"- Zeek 连接上下文命中数：{_count_items(zeek, 'events')}。",
+        f"- Suricata 规则告警命中数：{_count_items(suricata, 'alerts')}。",
+        "",
+        "## MineShark AI 告警摘要",
+        "",
+    ]
+    if alerts:
+        for item in alerts[:5]:
+            lines.append(
+                f"- alert_id={item.get('alert_id') or item.get('_mineshark_alert_id', '未知')}，"
+                f"uid={item.get('uid') or item.get('_mineshark_uid', '未知')}，"
+                f"prediction={item.get('prediction', '未知')}，score={_score(item)}。"
+            )
+    else:
+        lines.append("- 未找到满足阈值的 MineShark AI 告警。")
+
+    lines.extend(["", "## Wazuh/Zeek/Suricata 告警与上下文关联", ""])
+    if wazuh.get("alerts"):
+        lines.append(f"- Wazuh 告警来源：{wazuh.get('source', '未知')}，命中 {_count_items(wazuh, 'alerts')} 条。")
+    else:
+        lines.append(f"- Wazuh 未命中可用告警；降级或错误信息：{wazuh.get('error') or '无'}。")
+    if zeek.get("events"):
+        lines.append(f"- Zeek 提供 {_count_items(zeek, 'events')} 条连接上下文，可用于复核五元组和连接行为。")
+    else:
+        lines.append(f"- Zeek 暂无上下文；错误信息：{zeek.get('error') or '无'}。")
+    if suricata.get("alerts"):
+        lines.append(f"- Suricata 命中 {_count_items(suricata, 'alerts')} 条 IDS 告警，可作为规则侧旁证。")
+    else:
+        lines.append(f"- Suricata 暂无告警；错误信息：{suricata.get('error') or '无'}。")
+
+    lines.extend(["", "## RAG 知识依据", ""])
+    if rag.get("matches"):
+        for match in rag["matches"][:4]:
+            title = match.get("title", "未命名知识条目")
+            recommendation = match.get("recommendation", "无建议")
+            mode = match.get("retrieval_mode", "faiss")
+            lines.append(f"- {title}（{mode}）：{recommendation}")
+    else:
+        lines.append(f"- RAG 未命中可用知识；错误信息：{rag.get('error') or '无'}。")
+
+    lines.extend(
+        [
+            "",
+            "## 建议排查动作",
+            "",
+            "- 先确认源主机和目的地址是否属于已知业务、CDN、更新服务或运维资产。",
+            "- 结合 Wazuh 规则、Zeek UID、Suricata signature 和时间窗口复核是否形成一致证据链。",
+            "- 对周期性加密连接、非常规端口、SSH 多次失败后的成功登录等行为进行人工确认。",
+            "",
+            "## 误报与局限性提示",
+            "",
+            "模型概率来自加密流量元数据和时序行为，可能受业务自动化脚本、监控探针、更新代理影响。"
+            "本报告不建议自动封禁或自动隔离，最终处置应由安全运营人员结合资产上下文确认。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _thinking_enabled(config: RuntimeConfig) -> bool:
     return config.deepseek_thinking in {"1", "true", "yes", "y", "on", "enabled"}
 
@@ -207,7 +304,7 @@ def run_agent_audit(args: argparse.Namespace) -> Dict[str, Any]:
     if args.preflight_only:
         markdown = "# MineShark Preflight 诊断\n\n已完成运行前检查，未调用大模型。\n"
     elif args.evidence_only:
-        markdown = "# MineShark EvidenceBundle\n\n已完成确定性证据聚合，未调用大模型。\n"
+        markdown = render_evidence_only_markdown(evidence_bundle)
     else:
         tools = build_langchain_tools(toolbox, include_model_tool=args.rerun_model)
         agent = build_agent(config, tools, allow_thinking=False)

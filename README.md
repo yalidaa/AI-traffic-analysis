@@ -245,6 +245,33 @@ uv run pytest
 
 GitHub Actions 会在 push 和 pull request 时运行 Python 检查。
 
+## 命题赛评测与离线演示
+
+第七题参赛材料优先参考：
+
+```text
+docs/competition_submission.md
+```
+
+运行脱敏竞赛场景评测：
+
+```bash
+python scripts/eval/run_competition_eval.py \
+  --scenario-dir tests/fixtures/competition_scenarios \
+  --output-dir outputs/competition \
+  --threshold 0.70
+```
+
+运行不依赖外部大模型或 Wazuh API 的离线演示：
+
+```bash
+python scripts/agent/run_offline_fixture_demo.py \
+  --fixture-dir tests/fixtures/demo_event \
+  --output-dir outputs/offline_demo
+```
+
+评测输出 `metrics.json`、`comparison.md` 和 `table_data.csv`；离线演示输出同结构 JSON/Markdown 研判报告和 `tool_trace`。
+
 ## 分支协作建议
 
 当前仓库主要分支含义如下：

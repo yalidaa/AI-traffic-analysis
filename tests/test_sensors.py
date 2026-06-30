@@ -33,6 +33,28 @@ class SensorLogTests(unittest.TestCase):
             self.assertEqual(len(result["events"]), 1)
             self.assertEqual(result["events"][0]["id.resp_h"], "8.8.8.8")
 
+    def test_query_zeek_context_compares_epoch_ts_with_iso_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_dir = Path(tmp)
+            (log_dir / "conn.log").write_text(
+                "\n".join(
+                    [
+                        "#separator \\x09",
+                        "#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\tproto",
+                        "1779933600.0\tC1\t10.0.0.1\t51514\t8.8.8.8\t443\ttcp",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = query_zeek_context(
+                log_dir,
+                ip="10.0.0.1",
+                uid="C1",
+                start_time="2026-05-28T10:00:00+08:00",
+            )
+            self.assertEqual(len(result["events"]), 1)
+
     def test_query_suricata_alerts_filters_by_ip_and_signature(self):
         with tempfile.TemporaryDirectory() as tmp:
             eve_path = Path(tmp) / "eve.json"
