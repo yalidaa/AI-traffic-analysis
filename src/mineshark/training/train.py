@@ -467,9 +467,7 @@ def main(args, parser):
                     "calibration_target_fpr": args.target_fpr,
                     "negative_label_name": args.negative_label_name,
                     "positive_label_name": args.positive_label_name,
-                    "validation_operating_metrics": {
-                        key: value for key, value in calibrated.items() if key != "preds"
-                    },
+                    "validation_operating_metrics": {key: value for key, value in calibrated.items() if key != "preds"},
                 },
                 args.save_path,
             )

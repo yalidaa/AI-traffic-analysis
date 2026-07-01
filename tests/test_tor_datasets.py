@@ -219,7 +219,9 @@ class TorDatasetTests(unittest.TestCase):
 
         self.assertEqual(args.data_format, "ppi")
         self.assertEqual(Path(args.malware_dir), (ROOT / "datasets" / "experiments" / "ppi" / "tor" / "risk").resolve())
-        self.assertEqual(Path(args.benign_dir), (ROOT / "datasets" / "experiments" / "ppi" / "tor" / "normal").resolve())
+        self.assertEqual(
+            Path(args.benign_dir), (ROOT / "datasets" / "experiments" / "ppi" / "tor" / "normal").resolve()
+        )
         self.assertEqual(args.save_path, str((ROOT / "checkpoints" / "tor_binary_mineshark.pt").resolve()))
         self.assertEqual(args.target_fpr, 0.02)
         self.assertEqual(args.negative_label_name, "normal_tor")

@@ -267,7 +267,9 @@ def render_markdown(result: Dict[str, Any]) -> str:
     )
     if result["false_positives"]:
         for row in result["false_positives"]:
-            lines.append(f"- `{row['id']}`：{row['description']}，风险分 {row['score']:.3f}。建议结合资产角色和业务白名单复核。")
+            lines.append(
+                f"- `{row['id']}`：{row['description']}，风险分 {row['score']:.3f}。建议结合资产角色和业务白名单复核。"
+            )
     else:
         lines.append("- 本轮评测未出现误报。")
 
@@ -275,7 +277,9 @@ def render_markdown(result: Dict[str, Any]) -> str:
     lines.append("### 漏报样例")
     if result["false_negatives"]:
         for row in result["false_negatives"]:
-            lines.append(f"- `{row['id']}`：{row['description']}，风险分 {row['score']:.3f}。建议补充低频长周期行为特征。")
+            lines.append(
+                f"- `{row['id']}`：{row['description']}，风险分 {row['score']:.3f}。建议补充低频长周期行为特征。"
+            )
     else:
         lines.append("- 本轮评测未出现漏报。")
 

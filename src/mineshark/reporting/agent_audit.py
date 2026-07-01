@@ -687,7 +687,9 @@ def main():
     device = torch.device(args.device)
 
     model, config = load_model(checkpoint_path, device)
-    effective_threshold = float(args.threshold if args.threshold is not None else config.get("calibrated_threshold", 0.5))
+    effective_threshold = float(
+        args.threshold if args.threshold is not None else config.get("calibrated_threshold", 0.5)
+    )
     max_len = int(args.max_len or config.get("max_len", 128))
     min_packets = int(args.min_packets or config.get("min_packets", 3))
     max_pkt_size = int(args.max_pkt_size or config.get("max_pkt_size", 2000))
