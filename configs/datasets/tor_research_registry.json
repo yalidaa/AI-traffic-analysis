@@ -1,0 +1,122 @@
+{
+  "project_focus": "tor_encrypted_traffic",
+  "recommended_project_title": "MineShark: Tor encrypted anonymous-traffic risk analysis and LLM-assisted triage",
+  "selection_rule": "Prefer Tor traffic datasets that are used, released, or directly constructed by Tor / website-fingerprinting papers from USENIX Security, IEEE S&P, ACM CCS, and NDSS in the most recent three-year window.",
+  "primary_tasks": [
+    "closed_world_website_fingerprinting",
+    "open_world_monitored_unmonitored",
+    "multi_tab_website_fingerprinting",
+    "defended_trace_robustness",
+    "temporal_drift_evaluation"
+  ],
+  "datasets": [
+    {
+      "id": "awf-rimmer",
+      "priority": "P0",
+      "venue": "USENIX Security / ACM CCS references",
+      "paper_or_artifact": "Rimmer-style AWF Tor website-fingerprinting traces reused by recent WF work",
+      "year_window": "2023-2025",
+      "task": "single_tab_website_fingerprinting",
+      "label_space": "website_class, monitored, unmonitored",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "main_train_eval",
+      "source_url": "https://www.usenix.org/conference/usenixsecurity23/presentation/shen-meng",
+      "notes": "Use as the first reproducible Tor WF baseline. Convert packet or cell direction and timestamp sequences to PPI."
+    },
+    {
+      "id": "ares-multitab",
+      "priority": "P0",
+      "venue": "IEEE Symposium on Security and Privacy",
+      "paper_or_artifact": "Robust Multi-tab Website Fingerprinting Attacks in the Wild / Multitab-WF-Datasets",
+      "year_window": "2023-2025",
+      "task": "multi_tab_website_fingerprinting",
+      "label_space": "multi_label_website_set",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "multi_tab_eval",
+      "source_url": "https://github.com/Xinhao-Deng/Multitab-WF-Datasets",
+      "notes": "Use for Tor multi-tab traffic behavior, micro/macro F1, and Hamming loss evaluation."
+    },
+    {
+      "id": "netclr-drift",
+      "priority": "P0",
+      "venue": "ACM CCS",
+      "paper_or_artifact": "Realistic Website Fingerprinting by Augmenting Network Traces / NetCLR drift-style traces",
+      "year_window": "2023-2025",
+      "task": "temporal_drift_and_augmentation",
+      "label_space": "website_class, time_split",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "drift_eval",
+      "source_url": "https://arxiv.org/abs/2309.10147",
+      "notes": "Use to show that Tor traffic models need temporal validation instead of only random splits."
+    },
+    {
+      "id": "tmwf-multitab",
+      "priority": "P1",
+      "venue": "ACM CCS",
+      "paper_or_artifact": "Transformer-based Model for Multi-tab Website Fingerprinting Attack",
+      "year_window": "2023-2025",
+      "task": "multi_tab_transformer_baseline",
+      "label_space": "multi_label_website_set",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "model_comparison",
+      "notes": "Use as a transformer-oriented Tor WF comparison point when the artifact or derived traces are available."
+    },
+    {
+      "id": "walkie-talkie-defended",
+      "priority": "P1",
+      "venue": "USENIX Security references",
+      "paper_or_artifact": "Walkie-Talkie defended Tor website-fingerprinting traces reused by robust WF evaluations",
+      "year_window": "2023-2025",
+      "task": "defended_trace_robustness",
+      "label_space": "website_class, defense_name",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "defense_robustness_eval",
+      "notes": "Use to report how the detector behaves on defended or padded Tor traces."
+    },
+    {
+      "id": "wsc-usenix24",
+      "priority": "P1",
+      "venue": "USENIX Security",
+      "paper_or_artifact": "Stop, Don't Click Here Anymore: Boosting Website Fingerprinting by Considering Sets of Subpages",
+      "year_window": "2024-2026",
+      "task": "subpage_set_website_fingerprinting",
+      "label_space": "website_class, subpage_set",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "subpage_generalization_eval",
+      "source_url": "https://www.usenix.org/conference/usenixsecurity24/presentation/mitseva",
+      "notes": "Use as a methodology reference for collecting Tor subpage traces if the released dataset is unavailable."
+    },
+    {
+      "id": "ndss24-precise-circumvention",
+      "priority": "P1",
+      "venue": "NDSS",
+      "paper_or_artifact": "On Precisely Detecting Censorship Circumvention in Real-World Networks",
+      "year_window": "2024-2026",
+      "task": "tor_circumvention_detection_false_positive_boundary",
+      "label_space": "circumventing_flow, ordinary_flow",
+      "expected_formats": ["pcap", "jsonl", "csv"],
+      "recommended_role": "false_positive_boundary_reference",
+      "source_url": "https://www.ndss-symposium.org/ndss-paper/on-precisely-detecting-censorship-circumvention-in-real-world-networks/",
+      "notes": "Use as a methodology and FPR caution for Tor-related detection. It is not the first dataset to implement unless an accessible artifact is available."
+    },
+    {
+      "id": "gtt23-real-tor",
+      "priority": "P2",
+      "venue": "External Tor measurement dataset",
+      "paper_or_artifact": "GTT23 genuine Tor traces",
+      "year_window": "2023-2025",
+      "task": "real_tor_external_validation",
+      "label_space": "real_tor_trace_metadata",
+      "expected_formats": ["pcap", "jsonl", "csv"],
+      "recommended_role": "external_realism_check",
+      "source_url": "https://zenodo.org/records/10620520",
+      "notes": "Use only as external realism evidence because it is not a primary four-top-conference dataset."
+    }
+  ],
+  "local_manifest_schema": {
+    "required_fields": ["id", "dataset_id", "role", "label_type", "format", "path"],
+    "recommended_fields": ["venue", "paper_or_artifact", "split", "sample_count", "class_count", "notes"],
+    "allowed_formats": ["pcap", "npz", "npy", "jsonl", "json", "csv", "trace", "cell", "txt"],
+    "allowed_roles": ["main_train_eval", "multi_tab_eval", "drift_eval", "defense_robustness_eval", "subpage_generalization_eval", "external_realism_check", "model_comparison", "false_positive_boundary_reference"]
+  }
+}

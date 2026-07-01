@@ -1,0 +1,2 @@
+{"id":"awf-site-001","dataset":"awf-rimmer","label":"monitored_site","timestamps":[0.0,0.12,0.31,0.78],"directions":[1,-1,1,-1],"sizes":[514,514,514,514]}
+{"id":"ares-multi-001","dataset":"ares-multitab","label":"multi_tab","times":[0.0,0.08,0.21,0.43,0.90],"dirs":["out","in","out","out","in"]}

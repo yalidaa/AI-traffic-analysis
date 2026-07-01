@@ -83,6 +83,19 @@ EXPERIMENT_PRESETS = {
         "epochs": 20,
         "max_samples_per_source": 12000,
     },
+    "tor_binary": {
+        "data_format": "ppi",
+        "malware_dir": "datasets/experiments/ppi/tor/risk",
+        "benign_dir": "datasets/experiments/ppi/tor/normal",
+        "save_path": "checkpoints/tor_binary_mineshark.pt",
+        "split_mode": "by_source",
+        "balanced_sampling": 1,
+        "batch_size": 64,
+        "epochs": 20,
+        "target_fpr": 0.02,
+        "negative_label_name": "normal_tor",
+        "positive_label_name": "tor_risk_evidence",
+    },
 }
 
 
@@ -220,10 +233,10 @@ def count_labels(samples):
     return zeros, ones
 
 
-def print_split_stats(name, samples):
-    benign, malware = count_labels(samples)
+def print_split_stats(name, samples, negative_label_name="Benign", positive_label_name="Malware"):
+    negative_count, positive_count = count_labels(samples)
     sources = Counter(sample.get("source", "unknown") for sample in samples)
-    print(f"{name}={len(samples)} (benign={benign}, malware={malware})")
+    print(f"{name}={len(samples)} ({negative_label_name}={negative_count}, {positive_label_name}={positive_count})")
     for src, cnt in sorted(sources.items(), key=lambda x: x[0]):
         print(f"  - {src}: {cnt}")
 
@@ -249,7 +262,32 @@ def apply_experiment_preset(args, parser):
     args.malware_dir = resolve_path(args.malware_dir)
     args.benign_dir = resolve_path(args.benign_dir)
     args.save_path = resolve_path(args.save_path)
+    if args.init_checkpoint:
+        args.init_checkpoint = resolve_path(args.init_checkpoint)
     return args
+
+
+def load_initial_checkpoint(model, checkpoint_path: str, init_mode: str, device):
+    if init_mode == "none" or not checkpoint_path:
+        return
+
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    state_dict = checkpoint.get("model_state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+    if init_mode == "encoder":
+        state_dict = {key: value for key, value in state_dict.items() if not key.startswith("classifier_head.")}
+    current_state = model.state_dict()
+    compatible_state = {
+        key: value
+        for key, value in state_dict.items()
+        if key in current_state and tuple(current_state[key].shape) == tuple(value.shape)
+    }
+    skipped = len(state_dict) - len(compatible_state)
+    result = model.load_state_dict(compatible_state, strict=False)
+    print(
+        f"Initialized model from {checkpoint_path} with mode={init_mode}; "
+        f"loaded_keys={len(compatible_state)}, skipped_keys={skipped}, "
+        f"missing_keys={len(result.missing_keys)}, unexpected_keys={len(result.unexpected_keys)}"
+    )
 
 
 def main(args, parser):
@@ -262,6 +300,8 @@ def main(args, parser):
     print(f"Data format: {args.data_format}")
     print(f"Malware dir: {args.malware_dir}")
     print(f"Benign dir: {args.benign_dir}")
+    print(f"Negative label: {args.negative_label_name}")
+    print(f"Positive label: {args.positive_label_name}")
 
     if args.data_format == "ppi":
         all_samples = load_samples_from_ppi_dirs(
@@ -309,9 +349,9 @@ def main(args, parser):
 
     print(f"Loaded samples: total={len(all_samples)}")
     print(f"Split mode: {args.split_mode}")
-    print_split_stats("Train", train_samples)
-    print_split_stats("Val", val_samples)
-    print_split_stats("Test", test_samples)
+    print_split_stats("Train", train_samples, args.negative_label_name, args.positive_label_name)
+    print_split_stats("Val", val_samples, args.negative_label_name, args.positive_label_name)
+    print_split_stats("Test", test_samples, args.negative_label_name, args.positive_label_name)
 
     train_set = TrafficDataset(train_samples, mode="train_triplet")
     val_set = TrafficDataset(val_samples, mode="eval")
@@ -343,6 +383,7 @@ def main(args, parser):
         dropout=args.dropout,
         num_classes=2,
     ).to(device)
+    load_initial_checkpoint(model, args.init_checkpoint, args.init_mode, device)
 
     criterion = JointLoss(
         triplet_margin=args.triplet_margin,
@@ -424,6 +465,8 @@ def main(args, parser):
                     "best_epoch": best_epoch,
                     "calibrated_threshold": calibrated["threshold"],
                     "calibration_target_fpr": args.target_fpr,
+                    "negative_label_name": args.negative_label_name,
+                    "positive_label_name": args.positive_label_name,
                     "validation_operating_metrics": {
                         key: value for key, value in calibrated.items() if key != "preds"
                     },
@@ -461,7 +504,7 @@ def main(args, parser):
             test_labels,
             calibrated_metrics["preds"],
             labels=[0, 1],
-            target_names=["Benign", "Malware"],
+            target_names=[args.negative_label_name, args.positive_label_name],
             digits=4,
             zero_division=0,
         )
@@ -480,6 +523,16 @@ def build_parser():
     parser.add_argument("--malware-dir", type=str, default="datasets/raw/logs_malware")
     parser.add_argument("--benign-dir", type=str, default="datasets/raw/logs_benign")
     parser.add_argument("--save-path", type=str, default="checkpoints/deep_mineshark_best.pt")
+    parser.add_argument("--negative-label-name", type=str, default="Benign")
+    parser.add_argument("--positive-label-name", type=str, default="Malware")
+    parser.add_argument("--init-checkpoint", type=str, default="")
+    parser.add_argument(
+        "--init-mode",
+        type=str,
+        choices=["none", "compatible", "encoder"],
+        default="none",
+        help="Optional model initialization: compatible loads all matching weights, encoder skips classifier_head.",
+    )
 
     parser.add_argument("--max-len", type=int, default=128)
     parser.add_argument("--min-packets", type=int, default=3)
@@ -506,7 +559,7 @@ def build_parser():
         "--decision-threshold",
         type=float,
         default=0.5,
-        help="Default malware probability threshold used as a baseline report.",
+        help="Default positive-class probability threshold used as a baseline report.",
     )
     parser.add_argument(
         "--target-fpr",

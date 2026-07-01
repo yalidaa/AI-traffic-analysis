@@ -44,6 +44,10 @@ mineshark-prepare-ppi = "mineshark.data.prepare_ppi_from_logs:main"
 mineshark-prepare-malware-ppi = "mineshark.data.prepare_malware_ppi_from_logs:main"
 mineshark-prepare-experiments = "mineshark.data.prepare_experiment_data:main"
 mineshark-export-cesnet = "mineshark.data.prepare_cesnet_benign:main"
+mineshark-prepare-tor-ppi = "mineshark.data.prepare_tor_ppi:main"
+mineshark-tor-dataset-inventory = "mineshark.data.tor_registry:main"
+mineshark-check-tor-quality = "mineshark.data.tor_quality:main"
+mineshark-tor-binary-eval = "mineshark.evaluation.tor_eval:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

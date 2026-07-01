@@ -1,5 +1,21 @@
 # MineShark 第七题参赛提交说明
 
+## Tor 主线更新
+
+当前参赛研究方向调整为 Tor 加密匿名通信流量。作品名称建议更新为：
+
+**MineShark：面向 Tor 加密匿名通信的异常行为检测与大模型辅助研判系统。**
+
+数据集主线不再以 USTC、UNSW 或 CIC-Darknet2020 作为核心指标来源，而是优先参考近三年四大安全顶会中的 Tor / Website Fingerprinting 论文和数据集：
+
+- P0：AWF / Rimmer-style Tor website-fingerprinting traces，用于单标签 Tor 网站指纹主评测。
+- P0：ARES / Multitab-WF-Datasets，用于多标签页 Tor 流量评测。
+- P0：NetCLR drift-style traces，用于时间漂移和网络条件变化评测。
+- P1：Walkie-Talkie defended traces，用于防御后 Tor 流量鲁棒性评测。
+- P1：USENIX Security 2024 WSC 子页面集合方法，用于后续自采 Tor 子页面流量。
+
+本仓库已新增 `docs/tor_dataset_strategy.md`、`configs/datasets/tor_research_registry.json`、`scripts/data/prepare_tor_ppi.py` 和 `scripts/data/render_tor_dataset_inventory.py`。正式报告中必须明确边界：Tor 是匿名加密通信协议，不天然等于恶意行为；MineShark 检测的是 Tor 加密流量中的风险模式、指纹化行为、多标签页相关性、漂移失配和可疑异常证据。
+
 ## 命题定位
 
 参赛方向：第七题“面向加密通信协议的恶意行为检测技术”。

@@ -227,6 +227,31 @@ python scripts/data/prepare_ppi_from_logs.py \
   --app-label benign
 ```
 
+Tor 加密流量数据集主线说明见：
+
+```text
+docs/tor_dataset_strategy.md
+configs/datasets/tor_research_registry.json
+```
+
+将 Tor website-fingerprinting JSONL/CSV/trace 序列转换为 PPI CSV：
+
+```bash
+python scripts/data/prepare_tor_ppi.py \
+  --input E:/datasets/tor/awf/train.jsonl \
+  --output datasets/experiments/ppi/tor_awf_train.csv \
+  --default-app tor \
+  --max-len 128
+```
+
+渲染或校验本地 Tor 数据 manifest：
+
+```bash
+python scripts/data/render_tor_dataset_inventory.py \
+  --local-manifest datasets/experiments/tor_manifest.local.json \
+  --output outputs/tor_dataset_inventory.md
+```
+
 准备实验目录：
 
 ```bash
