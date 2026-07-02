@@ -4,19 +4,25 @@
 
 当前参赛口径定为：
 
-**MineShark：面向 Tor 加密流量风险证据识别与大模型辅助研判系统。**
+**MineShark：面向 Tor 加密匿名通信的流量风险线索识别与大模型辅助研判系统。**
 
 核心任务不是“检测 Tor 恶意用户”，也不是把 Tor 流量直接判为攻击事实。当前阶段要讲清楚的是：
 
 - Tor 是匿名加密通信协议，本身不是恶意行为。
 - Tor 用户不等于恶意用户。
-- 模型输出是流量侧风险证据，不是最终攻击定性。
+- 模型输出是流量侧风险线索，不是最终攻击定性。
 - LLM/RAG/Agent 是解释、聚合和报告层，不替代检测模型。
 - 单标签页不等于二分类；WFlib CW 是 95 类 closed-world 网站指纹任务，不是当前最终主线。
 
+## 项目演化说明
+
+本项目早期以通用加密恶意流量检测为目标，围绕常见良性/恶意流量样本完成日志解析、PPI 特征转换、Transformer 二分类训练、阈值校准和检测结果输出。随后项目接入 Wazuh、Zeek、Suricata、RAG、Agent 和 MineShark Console，形成能够把模型风险线索与多源安全日志组织成中文研判报告的工程原型。
+
+随着研究方向聚焦到 Tor 加密匿名通信，当前分支在原有加密流量检测与安全研判框架上补充 Tor 数据处理、NetCLR 条件漂移风险线索实验、WFlib 单标签页网站指纹备用链路和 Tor 相关报告边界。这个演化路径应在答辩中主动说明：MineShark 不是一开始就只服务 Tor 数据集，而是在已有加密流量检测系统基础上，面向 Tor 场景做研究前瞻和参赛交付扩展。
+
 ## 数据与任务口径
 
-当前最终实验主线回到 NetCLR Tor 二分类风险证据基线：
+当前最终实验主线回到 NetCLR Tor 二分类流量风险线索基线：
 
 | 项目 | 当前口径 |
 | --- | --- |
@@ -25,7 +31,7 @@
 | 标签 0 | `netclr_inferior_condition` |
 | 标签 1 | `netclr_superior_condition` |
 | 模型 | Transformer 二分类 |
-| 解释 | NetCLR 网络条件漂移下的风险证据基线，不是恶意/正常标签 |
+| 解释 | NetCLR 网络条件漂移下的流量风险线索基线，不是恶意/正常标签 |
 
 WFlib CW 单标签页链路已经保留在仓库中，但它应作为备用实验和工程能力证明：
 
@@ -121,13 +127,13 @@ outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md
 
 结论表述：
 
-低误报约束下 precision 较高，说明模型能给出一部分高置信风险证据；但 recall 很低，说明漏检严重。当前结果适合被包装成“风险证据二分类基线”和“辅助研判输入”，不适合被包装成成熟的 Tor 恶意检测系统。
+低误报约束下 precision 较高，说明模型能给出一部分高置信流量风险线索；但 recall 很低，说明漏检严重。当前结果适合被包装成“流量风险线索二分类基线”和“辅助研判输入”，不适合被包装成成熟的 Tor 恶意检测系统。
 
 ## 命题定位
 
 参赛方向：第七题“面向加密通信协议的恶意行为检测技术”。
 
-作品名称建议使用：MineShark：面向加密通信协议的风险证据识别与大模型辅助研判系统。
+作品名称统一使用：MineShark：面向 Tor 加密匿名通信的流量风险线索识别与大模型辅助研判系统。
 
 本项目的主线是：在不解密 TLS/SSH/Tor 等加密通信明文的前提下，基于连接元数据、包长序列、方向序列、包间隔、端口和多源安全日志识别风险线索。LLM/RAG/Agent 只作为辅助研判、报告生成和可解释审计能力，不把作品包装成 API 安全审计、源代码漏洞审计或自动化定责系统。
 
@@ -137,7 +143,7 @@ outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md
 | --- | --- | --- |
 | 加密通信流量分析工具 | 读取 MineShark/Zeek/Wazuh/Suricata 日志，聚合连接元数据和告警上下文 | `src/mineshark/sensors/`、`src/mineshark/agent/toolbox.py` |
 | 异常行为检测规则或模型 | Transformer 风险分、阈值校准、NetCLR 二分类基线、竞赛场景评估指标 | `src/mineshark/training/train.py`、`scripts/eval/run_tor_binary_eval.py`、`scripts/eval/run_competition_eval.py` |
-| 正常流量与风险流量对比 | 覆盖普通加密通信、Tor 条件漂移风险证据、C2 Beacon、加密隧道、SSH 暴力破解后行为 | `tests/fixtures/competition_scenarios/scenarios.jsonl`、`docs/tor_dataset_strategy.md` |
+| 正常流量与风险流量对比 | 覆盖普通加密通信、Tor 条件漂移风险线索、C2 Beacon、加密隧道、SSH 暴力破解后行为 | `tests/fixtures/competition_scenarios/scenarios.jsonl`、`docs/tor_dataset_strategy.md` |
 | 可解释研判 | Wazuh、Zeek、Suricata、RAG playbook 与 `tool_trace` 形成证据链 | `scripts/agent/run_agent_audit.py`、`scripts/agent/run_offline_fixture_demo.py` |
 
 ## 评测复现
@@ -217,9 +223,9 @@ Live 演示前必须确认 Wazuh 发行版、Indexer、Manager、Dashboard、Fil
 
 报告必须匿名，不出现学校、院系、指导教师、队员姓名、手机号、邮箱、API Key、服务器公网地址等身份或敏感信息。建议保留如下图表：
 
-- 系统架构图：MineShark AI、Wazuh、Zeek、Suricata、RAG、Agent、Console。
-- 检测流程图：元数据提取、模型判定、阈值校准、多源证据关联。
-- NetCLR 实验表：数据来源、转换流程、质量检查、训练参数、评估指标和失败解释。
+- 系统架构图：早期通用加密流量检测、Tor 扩展、MineShark AI、Wazuh、Zeek、Suricata、RAG、Agent、Console。
+- 检测流程图：元数据提取、模型判定、阈值校准、多源证据关联和人工复核。
+- NetCLR 实验表：数据来源、转换流程、质量检查、训练参数、评估指标和边界解释。
 - WFlib 备用链路说明：单标签页 Tor 数据处理能力，不作为二分类主线。
 - 指标表：Accuracy、Precision、Recall、F1、FPR、混淆矩阵。
 - 报告样例截图：Markdown 报告和 JSON `tool_trace`。

@@ -24,10 +24,10 @@ from docx.shared import Cm, Pt, RGBColor
 from mineshark.evaluation.competition import evaluate_scenarios, format_percent, load_scenarios
 
 
-TITLE = "MineShark：面向 Tor 加密流量风险证据识别与大模型辅助研判系统"
+TITLE = "MineShark：面向 Tor 加密匿名通信的流量风险线索识别与大模型辅助研判系统"
 
 DEFAULT_NETCLR_SUMMARY: Dict[str, Any] = {
-    "task_framing": "Tor encrypted traffic risk-evidence binary baseline",
+    "task_framing": "Tor encrypted anonymous-communication traffic risk-clue binary baseline",
     "binary_view": {
         "normal_dir": "datasets/experiments/ppi/tor/netclr_drift_binary/normal",
         "risk_dir": "datasets/experiments/ppi/tor/netclr_drift_binary/risk",
@@ -63,7 +63,7 @@ DEFAULT_NETCLR_SUMMARY: Dict[str, Any] = {
     },
     "interpretation": (
         "At a low-FPR operating point, precision is high but recall is very low. "
-        "Report this as high-confidence traffic-side risk evidence for assisted triage, "
+        "Report this as high-confidence traffic-side risk clues for assisted triage, "
         "not as a mature Tor threat detector."
     ),
 }
@@ -229,21 +229,23 @@ def add_summary(doc: Document) -> None:
     add_heading(doc, "摘要", 1)
     add_para(
         doc,
-        "MineShark 面向 Tor 等加密通信协议中的风险证据识别问题，围绕“不解密明文也能提取可复核风险线索”的目标，"
-        "构建了加密流量元数据分析、Transformer 风险证据判定、多源安全证据聚合和大模型辅助研判的原型系统。"
+        "MineShark 面向 Tor 加密匿名通信及其他加密通信协议中的流量风险线索识别问题，围绕“不解密明文也能提取可复核风险线索”的目标，"
+        "构建了加密流量元数据分析、Transformer 风险线索判定、多源安全证据聚合和大模型辅助研判的原型系统。"
         "系统从 Tor/NetCLR 数据、MineShark/Zeek 风格日志、Wazuh 告警、Suricata 规则告警和本地安全知识库中抽取证据，"
-        "以包长序列、方向序列、包间隔、端口和连接上下文作为主要输入，输出风险证据分、证据链、误报边界和人工复核建议。",
+        "以包长序列、方向序列、包间隔、端口和连接上下文作为主要输入，输出风险线索分、证据链、误报边界和人工复核建议。",
     )
     add_para(
         doc,
-        "当前最终实验主线采用 NetCLR Tor 条件漂移数据构建二分类风险证据基线，标签为 "
-        "`netclr_inferior_condition` 与 `netclr_superior_condition`。该标签表示网络条件差异下的流量侧风险证据，"
+        "项目早期以通用加密恶意流量检测为目标，完成日志解析、特征转换、Transformer 二分类训练和检测结果输出；"
+        "后续接入 Wazuh、Zeek、Suricata、RAG、Agent 和 Console，形成安全研判系统原型；随着研究方向聚焦到 Tor，"
+        "当前最终实验主线采用 NetCLR Tor 条件漂移数据构建二分类流量风险线索基线，标签为 "
+        "`netclr_inferior_condition` 与 `netclr_superior_condition`。该标签表示网络条件差异下的流量侧风险线索，"
         "不是恶意/正常事实。WFlib CW 单标签页链路仅作为 95 类 closed-world 网站指纹备用实验，不作为最终二分类主线。"
         "系统保留 LLM/RAG/Agent 作为辅助研判能力，用于把模型风险线索、Wazuh/Zeek/Suricata 证据和本地 playbook "
         "组织成可复核的中文报告。系统不自动封禁、不写回 Wazuh 状态，也不把模型概率直接等同于攻击事实。",
     )
     add_para(
-        doc, "关键词：Tor 加密流量；风险证据识别；NetCLR；Transformer；Wazuh；Zeek；Suricata；RAG；安全研判", size=12
+        doc, "关键词：Tor 加密匿名通信；流量风险线索识别；NetCLR；Transformer；Wazuh；Zeek；Suricata；RAG；安全研判", size=12
     )
 
 
@@ -255,19 +257,19 @@ def add_overview(doc: Document) -> None:
         "HTTPS、SSH、DNS over TLS 等加密通信已经成为企业网络的常态。传统依赖明文 payload、特征串或固定规则的检测方法"
         "在加密场景下受到限制，但连接元数据仍然保留了行为模式，例如包长、方向、连接持续时间、包间隔、端口、通信频率和"
         "同一主机的相邻告警。MineShark 利用这些元数据识别 C2 Beacon、异常隧道、SSH 暴力破解后操作、异常命令序列以及"
-        "Tor 条件漂移场景中的流量侧风险证据。",
+        "Tor 条件漂移场景中的流量侧风险线索。",
     )
     add_para(
         doc,
         "Tor 是匿名加密通信协议，本身不是攻击事实，Tor 用户也不等于恶意用户。因此本作品不声称“检测 Tor 恶意用户”，"
-        "而是将 Tor/NetCLR 实验限定为风险证据二分类基线：模型输出用于辅助研判和优先级排序，最终结论仍需结合日志、规则、"
+        "而是将 Tor/NetCLR 实验限定为流量风险线索二分类基线：模型输出用于辅助研判和优先级排序，最终结论仍需结合日志、规则、"
         "资产上下文和人工复核。",
     )
     add_heading(doc, "1.2 作品目标", 2)
     for item in [
-        "在不解密 TLS/SSH/Tor 明文的前提下，完成加密流量元数据与风险证据的对比分析。",
-        "以 NetCLR Tor 条件漂移数据构建二分类风险证据基线，并清晰说明其标签边界。",
-        "通过 Transformer 风险证据分和阈值策略输出可解释、可复核的流量侧风险线索。",
+        "在不解密 TLS/SSH/Tor 明文的前提下，完成加密流量元数据与风险线索的对比分析。",
+        "以 NetCLR Tor 条件漂移数据构建二分类流量风险线索基线，并清晰说明其标签边界。",
+        "通过 Transformer 风险线索分和阈值策略输出可解释、可复核的流量侧风险线索。",
         "关联 Wazuh、Zeek、Suricata 和本地 RAG playbook，生成可复核的中文研判报告。",
         "提供 live Wazuh/WSL 演示路径和离线 fallback 演示路径，降低比赛现场环境风险。",
     ]:
@@ -276,7 +278,7 @@ def add_overview(doc: Document) -> None:
     add_para(
         doc,
         "本作品适用于校园网、企业内网和实验 SOC 场景中的加密流量巡检。它不替代现有 IDS/SIEM，而是作为旁路分析组件，"
-        "把 AI 模型风险证据接入 Wazuh 告警体系，再由 Agent 将多源证据整理为人工可读的事件说明，降低人工研判成本。",
+        "把 AI 模型风险线索接入 Wazuh 告警体系，再由 Agent 将多源证据整理为人工可读的事件说明，降低人工研判成本。",
     )
 
 
@@ -286,7 +288,7 @@ def add_design(doc: Document) -> None:
     add_para(doc, "图 1  系统总体流程（文本化表示）", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=11)
     flow_rows = [
         ("输入层", "MineShark/Zeek 连接日志、Wazuh 告警、Suricata eve.json、本地安全 playbook"),
-        ("检测层", "解析包长、方向、IAT、端口等元数据，使用 Transformer 输出风险证据分"),
+        ("检测层", "解析包长、方向、IAT、端口等元数据，使用 Transformer 输出风险线索分"),
         ("证据层", "按 alert_id、UID、IP 和时间窗口查询 Wazuh、Zeek、Suricata 与 RAG"),
         ("研判层", "EvidenceBundle、质量检查、LLM 或确定性报告生成"),
         ("展示层", "Markdown/JSON 报告、tool_trace、MineShark Console"),
@@ -296,9 +298,9 @@ def add_design(doc: Document) -> None:
     add_para(
         doc,
         "检测模型不读取会话明文，而是以包长序列、方向序列、包间隔时间和连接上下文作为输入。"
-        "Transformer 用于建模序列中不同位置之间的依赖关系，输出二分类风险证据分。"
+        "Transformer 用于建模序列中不同位置之间的依赖关系，输出二分类风险线索分。"
         "在 NetCLR 主线中，负侧标签为 `netclr_inferior_condition`，正侧标签为 `netclr_superior_condition`；"
-        "它们是网络条件差异下的风险证据标签，不是正常/恶意标签。训练分支保留阈值校准逻辑，优先控制误报率，"
+        "它们是网络条件差异下的风险线索标签，不是正常/恶意标签。训练分支保留阈值校准逻辑，优先控制误报率，"
         "而不是只追求单一准确率。",
     )
     add_heading(doc, "2.3 多源证据聚合", 2)
@@ -333,10 +335,10 @@ def add_netclr_experiment(doc: Document, summary: Dict[str, Any]) -> None:
     binary_view = summary["binary_view"]
     quality = summary["quality"]
     metric = summary["metrics"]
-    add_heading(doc, "3.2 NetCLR Tor 二分类风险证据基线", 2)
+    add_heading(doc, "3.2 NetCLR Tor 二分类流量风险线索基线", 2)
     add_para(
         doc,
-        "最终实验包采用 NetCLR Tor 条件漂移数据构建二分类风险证据基线。该实验不是 Tor 恶意用户检测，"
+        "最终实验包采用 NetCLR Tor 条件漂移数据构建二分类流量风险线索基线。该实验不是 Tor 恶意用户检测，"
         "也不是 WFlib CW 的 95 类 closed-world 网站指纹分类。WFlib 单标签页链路仅作为备用工程能力保留。",
     )
     add_table(
@@ -348,7 +350,7 @@ def add_netclr_experiment(doc: Document, summary: Dict[str, Any]) -> None:
             ("负侧报告标签", binary_view["negative_label_name"]),
             ("正侧报告标签", binary_view["positive_label_name"]),
             ("Checkpoint", summary["checkpoint"]),
-            ("标签边界", "NetCLR 条件差异风险证据，不是正常/恶意事实标签"),
+            ("标签边界", "NetCLR 条件差异风险线索，不是正常/恶意事实标签"),
         ],
     )
     add_table(
@@ -384,7 +386,7 @@ def add_netclr_experiment(doc: Document, summary: Dict[str, Any]) -> None:
     add_para(
         doc,
         "结果解读：在低误报约束下，NetCLR 二分类基线 precision 较高，但 recall 很低。这说明模型可以输出一部分"
-        "高置信流量侧风险证据，但漏检严重。因此当前结果适合用于风险证据优先级排序和辅助研判，不适合包装成成熟的"
+        "高置信流量侧风险线索，但漏检严重。因此当前结果适合用于风险线索优先级排序和辅助研判，不适合包装成成熟的"
         "Tor 恶意检测系统。",
     )
 
@@ -395,7 +397,7 @@ def add_testing(doc: Document, metrics: Dict[str, Any], netclr_summary: Dict[str
     add_para(
         doc,
         "测试采用 NetCLR Tor 最终实验包、脱敏小型竞赛评测集与系统级演示三条路径。NetCLR 实验包用于支撑当前"
-        "Tor 风险证据二分类主线；脱敏竞赛评测集用于展示普通加密通信、C2 Beacon、加密隧道和 SSH 异常行为的"
+        "Tor 风险线索二分类主线；脱敏竞赛评测集用于展示普通加密通信、C2 Beacon、加密隧道和 SSH 异常行为的"
         "风险线索对比；系统级演示包括 live Wazuh/WSL 链路和离线 fallback 链路。",
     )
     add_netclr_experiment(doc, netclr_summary)
@@ -470,7 +472,7 @@ def add_testing(doc: Document, metrics: Dict[str, Any], netclr_summary: Dict[str
 def add_innovation(doc: Document) -> None:
     add_heading(doc, "第四章 创新性说明", 1)
     innovations = [
-        ("不解密条件下的风险证据识别", "使用包长、方向、IAT、端口和连接上下文识别加密通信中的可疑行为模式。"),
+        ("不解密条件下的流量风险线索识别", "使用包长、方向、IAT、端口和连接上下文识别加密通信中的可疑行为模式。"),
         (
             "Tor/NetCLR 任务边界治理",
             "明确 Tor 不是攻击事实，NetCLR 二分类标签是条件漂移风险证据，不包装成恶意用户检测。",
@@ -487,9 +489,9 @@ def add_conclusion(doc: Document) -> None:
     add_heading(doc, "第五章 总结", 1)
     add_para(
         doc,
-        "MineShark 围绕第七题要求实现了加密通信流量分析、风险证据识别模型和正常/风险流量对比实验，并通过 Wazuh、Zeek、"
-        "Suricata、RAG 与 Agent 把模型风险线索转化为可复核报告。当前最终实验主线已经收束为 NetCLR Tor 二分类风险证据基线；"
-        "其低误报约束下 precision 较高，但 recall 很低，适合用于高置信风险证据提示和辅助研判，不适合包装成成熟检测系统。"
+        "MineShark 围绕第七题要求实现了加密通信流量分析、流量风险线索识别模型和正常/风险流量对比实验，并通过 Wazuh、Zeek、"
+        "Suricata、RAG 与 Agent 把模型风险线索转化为可复核报告。当前最终实验主线已经收束为 NetCLR Tor 二分类流量风险线索基线；"
+        "其低误报约束下 precision 较高，但 recall 很低，适合用于高置信风险线索提示和辅助研判，不适合包装成成熟检测系统。"
         "后续可继续扩展更合理的标签定义、更丰富的流量特征、更多协议类型、业务白名单、前端可视化和报告质量自动评估。",
     )
     add_para(

@@ -1,12 +1,13 @@
-# MineShark：AI 加密流量分析与安全研判系统
+# MineShark：面向 Tor 加密匿名通信的流量风险线索识别与大模型辅助研判系统
 
-MineShark 是一个面向网络安全场景的 AI 应用原型。项目在 Wazuh、Zeek、Suricata 等安全监测底座之上，补充加密流量 AI 检测、证据聚合、RAG 安全知识检索和中文研判报告生成能力，用于把原始安全告警转化为更适合人工复核的事件说明。
+MineShark 是一个面向命题挑战七“面向加密通信协议的恶意行为检测技术”的 AI 安全应用原型。项目在 Wazuh、Zeek、Suricata 等安全监测底座之上，补充 Tor/加密通信流量元数据分析、流量风险线索识别、证据聚合、RAG 安全知识检索和中文研判报告生成能力，用于把原始安全告警转化为更适合人工复核的事件说明。
 
-本项目适合作为参赛展示或团队协作项目：它不是单纯的模型训练脚本，也不是完全自动化的 SOC 平台，而是一个能够从日志、模型输出、规则告警和知识库证据中生成安全分析结论的轻量级 AI 安全分析系统。
+本项目适合作为参赛展示或团队协作项目：它不是单纯的模型训练脚本，也不是完全自动化的 SOC 平台，而是一个能够从日志、模型输出、规则告警和知识库证据中生成安全分析结论的轻量级 AI 安全分析系统。项目早期以通用加密恶意流量检测为目标，后续在原有检测框架和安全研判系统之上，结合研究方向扩展 Tor 数据处理、NetCLR 条件漂移实验和 WFlib 网站指纹备用链路。
 
 ## 项目目标
 
 - 从 Zeek、Suricata、Wazuh 和 MineShark AI 告警中读取安全事件线索。
+- 在不解密通信内容的前提下，基于包长、方向、IAT、端口和连接上下文识别流量风险线索。
 - 使用流量模型、规则证据和 RAG 知识库辅助判断风险。
 - 调用 DeepSeek 或规则兜底逻辑生成中文安全研判报告。
 - 提供 MineShark Console Web 控制台，展示告警、证据拓扑、报告和任务历史。
@@ -15,7 +16,9 @@ MineShark 是一个面向网络安全场景的 AI 应用原型。项目在 Wazuh
 
 ## 当前比赛口径
 
-当前 Tor 方向主线是 **NetCLR 条件漂移风险证据二分类基线**，不是“检测 Tor 恶意用户”。二分类训练视图使用 `NCDrift_inf.csv` 与 `NCDrift_sup.csv`，报告标签为 `netclr_inferior_condition` 和 `netclr_superior_condition`；它们只表示 NetCLR 网络条件差异下的流量侧风险证据，不表示恶意/正常事实。
+当前参赛题目统一为 **MineShark：面向 Tor 加密匿名通信的流量风险线索识别与大模型辅助研判系统**。
+
+当前 Tor 方向主线是 **NetCLR 条件漂移流量风险线索二分类基线**，不是“检测 Tor 恶意用户”。二分类训练视图使用 `NCDrift_inf.csv` 与 `NCDrift_sup.csv`，报告标签为 `netclr_inferior_condition` 和 `netclr_superior_condition`；它们只表示 NetCLR 网络条件差异下的流量侧风险证据，不表示恶意/正常事实。
 
 WFlib CW 单标签页链路已经接入并保留，但它天然是 95 类 closed-world website fingerprinting 任务。当前阶段只把它作为真实 Tor 单标签页数据处理、质量检查、训练评估的备用工程能力，不作为最终二分类主线。
 
@@ -25,7 +28,7 @@ WFlib CW 单标签页链路已经接入并保留，但它天然是 95 类 closed
 
 | 模块 | 作用 | 主要入口 |
 | --- | --- | --- |
-| AI 流量分析 | 读取流量特征，训练或复用 Transformer 模型，输出风险线索 | `scripts/train/`、`src/mineshark/training/` |
+| AI 流量分析 | 读取流量元数据，训练或复用 Transformer 模型，输出流量风险线索 | `scripts/train/`、`src/mineshark/training/` |
 | Agent 研判 | 聚合 AI 告警、Wazuh、Zeek、Suricata 和 RAG 证据，生成中文报告 | `scripts/agent/run_agent_audit.py`、`mineshark-agent-audit` |
 | RAG 知识库 | 基于本地安全知识条目构建 FAISS 索引，辅助解释告警 | `scripts/rag/build_index.py`、`mineshark-build-rag` |
 | Web 控制台 | 提供只读 API、任务触发、报告中心和 SOC 风格前端 | `mineshark-console`、`web/frontend/` |
