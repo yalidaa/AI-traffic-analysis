@@ -820,11 +820,7 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
   );
 }
 
-function MarkdownReport({ markdown, mode }) {
-  if (mode === "source") {
-    return <pre className="markdown-source">{markdown}</pre>;
-  }
-
+function MarkdownReport({ markdown }) {
   return (
     <div className="markdown-rendered">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
@@ -858,7 +854,6 @@ function PaginationControls({ page, pageCount, total, pageSize, onPageChange }) 
 }
 
 function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
-  const [reportMode, setReportMode] = useState("rendered");
   const [reportPage, setReportPage] = useState(1);
   const recentReports = reports.slice(0, REPORTS_HISTORY_LIMIT);
   const pageCount = Math.max(1, Math.ceil(recentReports.length / REPORTS_PER_PAGE));
@@ -907,29 +902,10 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
       <section className="panel report-reader">
         <div className="panel-head">
           <h2>研判报告</h2>
-          <div className="panel-actions">
-            <div className="segmented-control" aria-label="报告显示模式">
-              <button
-                type="button"
-                className={reportMode === "rendered" ? "active" : ""}
-                onClick={() => setReportMode("rendered")}
-              >
-                渲染
-              </button>
-              <button
-                type="button"
-                className={reportMode === "source" ? "active" : ""}
-                onClick={() => setReportMode("source")}
-              >
-                源码
-              </button>
-            </div>
-            <FileText size={18} />
-          </div>
         </div>
         {selectedReport ? (
           <article className="markdown-body">
-            <MarkdownReport markdown={markdown} mode={reportMode} />
+            <MarkdownReport markdown={markdown} />
           </article>
         ) : (
           <EmptyState title="未选择报告" detail="左侧列表为空或尚未加载报告快照。" />

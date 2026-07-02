@@ -597,7 +597,6 @@ input:focus {
 }
 
 .json-preview,
-.markdown-source,
 .markdown-rendered {
   margin: 0;
   width: 100%;
@@ -682,46 +681,13 @@ input:focus {
   min-height: 640px;
 }
 
-.segmented-control {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 3px;
-  border: 1px solid #26364f;
-  border-radius: 8px;
-  background: #08111f;
-}
-
-.segmented-control button {
-  min-width: 56px;
-  min-height: 28px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #8aa0b8;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.segmented-control button.active {
-  background: #1d4ed8;
-  color: #eff6ff;
-}
-
 .markdown-body {
   color: #dbeafe;
 }
 
-.markdown-source,
 .markdown-rendered {
   min-height: 560px;
   max-height: calc(100vh - 190px);
-}
-
-.markdown-source {
-  white-space: pre-wrap;
-  line-height: 1.65;
-  font-size: 14px;
 }
 
 .markdown-rendered {
