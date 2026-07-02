@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
+
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Dict, Iterable, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,7 +15,6 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from docx import Document
-from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
@@ -23,7 +24,49 @@ from docx.shared import Cm, Pt, RGBColor
 from mineshark.evaluation.competition import evaluate_scenarios, format_percent, load_scenarios
 
 
-TITLE = "MineShark：面向加密通信协议的恶意行为检测与大模型辅助研判系统"
+TITLE = "MineShark：面向 Tor 加密流量风险证据识别与大模型辅助研判系统"
+
+DEFAULT_NETCLR_SUMMARY: Dict[str, Any] = {
+    "task_framing": "Tor encrypted traffic risk-evidence binary baseline",
+    "binary_view": {
+        "normal_dir": "datasets/experiments/ppi/tor/netclr_drift_binary/normal",
+        "risk_dir": "datasets/experiments/ppi/tor/netclr_drift_binary/risk",
+        "negative_label_name": "netclr_inferior_condition",
+        "positive_label_name": "netclr_superior_condition",
+        "label_warning": "These are NetCLR condition labels, not normal vs malware labels.",
+    },
+    "quality": {
+        "file_count": 2,
+        "sample_count": 28312,
+        "invalid_rows": 0,
+        "class_count": 93,
+        "average_sequence_length": 127.47739474427804,
+        "min_sequence_length": 22,
+        "max_sequence_length": 128,
+        "short_sample_count": 0,
+        "empty_direction_sample_count": 0,
+    },
+    "checkpoint": "checkpoints/tor_netclr_drift_binary_gpu_v1.pt",
+    "metrics": {
+        "sample_count": 28312,
+        "threshold": 0.5664353178573608,
+        "accuracy": 0.29461005933879625,
+        "precision": 0.8290482634190347,
+        "recall": 0.08576761549230051,
+        "f1": 0.15545312301771894,
+        "fpr": 0.055071200232490555,
+        "fnr": 0.9142323845076995,
+        "tp": 1838,
+        "fp": 379,
+        "tn": 6503,
+        "fn": 19592,
+    },
+    "interpretation": (
+        "At a low-FPR operating point, precision is high but recall is very low. "
+        "Report this as high-confidence traffic-side risk evidence for assisted triage, "
+        "not as a mature Tor threat detector."
+    ),
+}
 
 
 def set_run_font(run, *, name: str = "宋体", size: float | None = 12, bold: bool | None = None) -> None:
@@ -138,6 +181,10 @@ def add_table(doc: Document, headers: Sequence[str], rows: Iterable[Sequence[Any
     doc.add_paragraph()
 
 
+def fmt_decimal(value: Any, digits: int = 4) -> str:
+    return f"{float(value):.{digits}f}"
+
+
 def add_cover(doc: Document) -> None:
     add_para(doc, "附件2：", size=12)
     add_para(
@@ -182,18 +229,22 @@ def add_summary(doc: Document) -> None:
     add_heading(doc, "摘要", 1)
     add_para(
         doc,
-        "MineShark 面向加密通信协议中的恶意行为检测问题，围绕“不解密明文也能识别风险线索”的目标，"
-        "构建了加密流量元数据分析、Transformer 风险判定、多源安全证据聚合和大模型辅助研判的原型系统。"
-        "系统从 MineShark/Zeek 风格日志、Wazuh 告警、Suricata 规则告警和本地安全知识库中抽取证据，"
-        "以包长序列、方向序列、包间隔、端口和连接上下文作为主要输入，输出风险分、证据链、误报边界和人工复核建议。",
+        "MineShark 面向 Tor 等加密通信协议中的风险证据识别问题，围绕“不解密明文也能提取可复核风险线索”的目标，"
+        "构建了加密流量元数据分析、Transformer 风险证据判定、多源安全证据聚合和大模型辅助研判的原型系统。"
+        "系统从 Tor/NetCLR 数据、MineShark/Zeek 风格日志、Wazuh 告警、Suricata 规则告警和本地安全知识库中抽取证据，"
+        "以包长序列、方向序列、包间隔、端口和连接上下文作为主要输入，输出风险证据分、证据链、误报边界和人工复核建议。",
     )
     add_para(
         doc,
-        "作品重点对齐命题赛道第七题：提供加密通信流量分析工具、异常行为检测模型，以及正常流量与攻击流量的对比实验。"
-        "同时，系统保留 LLM/RAG/Agent 作为辅助研判能力，用于把模型风险线索、Wazuh/Zeek/Suricata 证据和本地 playbook "
+        "当前最终实验主线采用 NetCLR Tor 条件漂移数据构建二分类风险证据基线，标签为 "
+        "`netclr_inferior_condition` 与 `netclr_superior_condition`。该标签表示网络条件差异下的流量侧风险证据，"
+        "不是恶意/正常事实。WFlib CW 单标签页链路仅作为 95 类 closed-world 网站指纹备用实验，不作为最终二分类主线。"
+        "系统保留 LLM/RAG/Agent 作为辅助研判能力，用于把模型风险线索、Wazuh/Zeek/Suricata 证据和本地 playbook "
         "组织成可复核的中文报告。系统不自动封禁、不写回 Wazuh 状态，也不把模型概率直接等同于攻击事实。",
     )
-    add_para(doc, "关键词：加密流量；恶意行为检测；Transformer；Wazuh；Zeek；Suricata；RAG；安全研判", size=12)
+    add_para(
+        doc, "关键词：Tor 加密流量；风险证据识别；NetCLR；Transformer；Wazuh；Zeek；Suricata；RAG；安全研判", size=12
+    )
 
 
 def add_overview(doc: Document) -> None:
@@ -203,12 +254,20 @@ def add_overview(doc: Document) -> None:
         doc,
         "HTTPS、SSH、DNS over TLS 等加密通信已经成为企业网络的常态。传统依赖明文 payload、特征串或固定规则的检测方法"
         "在加密场景下受到限制，但连接元数据仍然保留了行为模式，例如包长、方向、连接持续时间、包间隔、端口、通信频率和"
-        "同一主机的相邻告警。MineShark 利用这些元数据识别 C2 Beacon、异常隧道、SSH 暴力破解后操作和异常命令序列等风险线索。",
+        "同一主机的相邻告警。MineShark 利用这些元数据识别 C2 Beacon、异常隧道、SSH 暴力破解后操作、异常命令序列以及"
+        "Tor 条件漂移场景中的流量侧风险证据。",
+    )
+    add_para(
+        doc,
+        "Tor 是匿名加密通信协议，本身不是攻击事实，Tor 用户也不等于恶意用户。因此本作品不声称“检测 Tor 恶意用户”，"
+        "而是将 Tor/NetCLR 实验限定为风险证据二分类基线：模型输出用于辅助研判和优先级排序，最终结论仍需结合日志、规则、"
+        "资产上下文和人工复核。",
     )
     add_heading(doc, "1.2 作品目标", 2)
     for item in [
-        "在不解密 TLS/SSH 明文的前提下，完成正常流量与攻击流量的元数据对比分析。",
-        "通过 Transformer 风险分和阈值策略输出可解释的恶意行为风险线索。",
+        "在不解密 TLS/SSH/Tor 明文的前提下，完成加密流量元数据与风险证据的对比分析。",
+        "以 NetCLR Tor 条件漂移数据构建二分类风险证据基线，并清晰说明其标签边界。",
+        "通过 Transformer 风险证据分和阈值策略输出可解释、可复核的流量侧风险线索。",
         "关联 Wazuh、Zeek、Suricata 和本地 RAG playbook，生成可复核的中文研判报告。",
         "提供 live Wazuh/WSL 演示路径和离线 fallback 演示路径，降低比赛现场环境风险。",
     ]:
@@ -217,7 +276,7 @@ def add_overview(doc: Document) -> None:
     add_para(
         doc,
         "本作品适用于校园网、企业内网和实验 SOC 场景中的加密流量巡检。它不替代现有 IDS/SIEM，而是作为旁路分析组件，"
-        "把 AI 模型风险线索接入 Wazuh 告警体系，再由 Agent 将多源证据整理为人工可读的事件说明，降低人工研判成本。",
+        "把 AI 模型风险证据接入 Wazuh 告警体系，再由 Agent 将多源证据整理为人工可读的事件说明，降低人工研判成本。",
     )
 
 
@@ -227,7 +286,7 @@ def add_design(doc: Document) -> None:
     add_para(doc, "图 1  系统总体流程（文本化表示）", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=11)
     flow_rows = [
         ("输入层", "MineShark/Zeek 连接日志、Wazuh 告警、Suricata eve.json、本地安全 playbook"),
-        ("检测层", "解析包长、方向、IAT、端口等元数据，使用 Transformer 输出恶意概率"),
+        ("检测层", "解析包长、方向、IAT、端口等元数据，使用 Transformer 输出风险证据分"),
         ("证据层", "按 alert_id、UID、IP 和时间窗口查询 Wazuh、Zeek、Suricata 与 RAG"),
         ("研判层", "EvidenceBundle、质量检查、LLM 或确定性报告生成"),
         ("展示层", "Markdown/JSON 报告、tool_trace、MineShark Console"),
@@ -237,8 +296,10 @@ def add_design(doc: Document) -> None:
     add_para(
         doc,
         "检测模型不读取会话明文，而是以包长序列、方向序列、包间隔时间和连接上下文作为输入。"
-        "Transformer 用于建模序列中不同位置之间的依赖关系，输出 benign/malware 二分类风险分。"
-        "训练分支保留阈值校准逻辑，优先控制误报率，而不是只追求单一准确率。",
+        "Transformer 用于建模序列中不同位置之间的依赖关系，输出二分类风险证据分。"
+        "在 NetCLR 主线中，负侧标签为 `netclr_inferior_condition`，正侧标签为 `netclr_superior_condition`；"
+        "它们是网络条件差异下的风险证据标签，不是正常/恶意标签。训练分支保留阈值校准逻辑，优先控制误报率，"
+        "而不是只追求单一准确率。",
     )
     add_heading(doc, "2.3 多源证据聚合", 2)
     add_table(
@@ -268,15 +329,77 @@ def add_design(doc: Document) -> None:
         add_bullet(doc, item)
 
 
-def add_testing(doc: Document, metrics: Dict[str, Any]) -> None:
+def add_netclr_experiment(doc: Document, summary: Dict[str, Any]) -> None:
+    binary_view = summary["binary_view"]
+    quality = summary["quality"]
+    metric = summary["metrics"]
+    add_heading(doc, "3.2 NetCLR Tor 二分类风险证据基线", 2)
+    add_para(
+        doc,
+        "最终实验包采用 NetCLR Tor 条件漂移数据构建二分类风险证据基线。该实验不是 Tor 恶意用户检测，"
+        "也不是 WFlib CW 的 95 类 closed-world 网站指纹分类。WFlib 单标签页链路仅作为备用工程能力保留。",
+    )
+    add_table(
+        doc,
+        ["项目", "内容"],
+        [
+            ("负侧训练视图", binary_view["normal_dir"]),
+            ("正侧训练视图", binary_view["risk_dir"]),
+            ("负侧报告标签", binary_view["negative_label_name"]),
+            ("正侧报告标签", binary_view["positive_label_name"]),
+            ("Checkpoint", summary["checkpoint"]),
+            ("标签边界", "NetCLR 条件差异风险证据，不是正常/恶意事实标签"),
+        ],
+    )
+    add_table(
+        doc,
+        ["质量检查项", "数值"],
+        [
+            ("file_count", quality["file_count"]),
+            ("sample_count", quality["sample_count"]),
+            ("invalid_rows", quality["invalid_rows"]),
+            ("class_count", quality["class_count"]),
+            ("average_sequence_length", fmt_decimal(quality["average_sequence_length"])),
+            ("min_sequence_length", quality["min_sequence_length"]),
+            ("max_sequence_length", quality["max_sequence_length"]),
+            ("short_sample_count", quality["short_sample_count"]),
+            ("empty_direction_sample_count", quality["empty_direction_sample_count"]),
+        ],
+    )
+    add_table(
+        doc,
+        ["指标", "数值"],
+        [
+            ("sample_count", metric["sample_count"]),
+            ("threshold", fmt_decimal(metric["threshold"])),
+            ("accuracy", format_percent(metric["accuracy"])),
+            ("precision", format_percent(metric["precision"])),
+            ("recall", format_percent(metric["recall"])),
+            ("f1", format_percent(metric["f1"])),
+            ("fpr", format_percent(metric["fpr"])),
+            ("fnr", format_percent(metric["fnr"])),
+            ("TP / FP / TN / FN", f"{metric['tp']} / {metric['fp']} / {metric['tn']} / {metric['fn']}"),
+        ],
+    )
+    add_para(
+        doc,
+        "结果解读：在低误报约束下，NetCLR 二分类基线 precision 较高，但 recall 很低。这说明模型可以输出一部分"
+        "高置信流量侧风险证据，但漏检严重。因此当前结果适合用于风险证据优先级排序和辅助研判，不适合包装成成熟的"
+        "Tor 恶意检测系统。",
+    )
+
+
+def add_testing(doc: Document, metrics: Dict[str, Any], netclr_summary: Dict[str, Any]) -> None:
     add_heading(doc, "第三章 作品测试与分析", 1)
     add_heading(doc, "3.1 测试方案", 2)
     add_para(
         doc,
-        "测试采用脱敏小型竞赛评测集与系统级演示两条路径。评测集覆盖正常 HTTPS、正常 SSH、DNS over TLS、C2 Beacon、"
-        "加密隧道、SSH 暴力破解后操作和异常 SSH 命令序列。系统级演示包括 live Wazuh/WSL 链路和离线 fallback 链路。",
+        "测试采用 NetCLR Tor 最终实验包、脱敏小型竞赛评测集与系统级演示三条路径。NetCLR 实验包用于支撑当前"
+        "Tor 风险证据二分类主线；脱敏竞赛评测集用于展示普通加密通信、C2 Beacon、加密隧道和 SSH 异常行为的"
+        "风险线索对比；系统级演示包括 live Wazuh/WSL 链路和离线 fallback 链路。",
     )
-    add_heading(doc, "3.2 场景覆盖", 2)
+    add_netclr_experiment(doc, netclr_summary)
+    add_heading(doc, "3.3 脱敏竞赛场景覆盖", 2)
     category_rows = []
     for item in metrics["categories"]:
         category_rows.append(
@@ -289,7 +412,7 @@ def add_testing(doc: Document, metrics: Dict[str, Any]) -> None:
             ]
         )
     add_table(doc, ["场景", "样本数", "平均风险分", "Accuracy", "FPR"], category_rows)
-    add_heading(doc, "3.3 指标结果", 2)
+    add_heading(doc, "3.4 脱敏竞赛场景指标", 2)
     metric = metrics["metrics"]
     add_table(
         doc,
@@ -312,14 +435,15 @@ def add_testing(doc: Document, metrics: Dict[str, Any]) -> None:
             ("FN", metric["fn"]),
         ],
     )
-    add_heading(doc, "3.4 误报与漏报分析", 2)
+    add_heading(doc, "3.5 误报与漏报分析", 2)
     add_para(
         doc,
-        "默认阈值 0.70 下，评测集出现 1 个误报和 1 个漏报。误报样例是自动化巡检 SSH 会话，固定长度往返和周期性行为"
-        "与异常隧道存在相似性；漏报样例是低频长周期 C2 Beacon，风险分略低于阈值。后续优化方向是引入业务白名单、"
-        "长周期统计窗口和人工反馈闭环。",
+        "脱敏竞赛 fixture 的默认阈值为 0.70，出现 1 个误报和 1 个漏报。误报样例是自动化巡检 SSH 会话，"
+        "固定长度往返和周期性行为与异常隧道存在相似性；漏报样例是低频长周期 C2 Beacon，风险分略低于阈值。"
+        "这些样例用于说明模型概率只是风险线索，不等于攻击事实。后续优化方向是引入业务白名单、长周期统计窗口和"
+        "人工反馈闭环。",
     )
-    add_heading(doc, "3.5 演示验证", 2)
+    add_heading(doc, "3.6 演示验证", 2)
     add_table(
         doc,
         ["演示路径", "命令", "输出"],
@@ -346,7 +470,11 @@ def add_testing(doc: Document, metrics: Dict[str, Any]) -> None:
 def add_innovation(doc: Document) -> None:
     add_heading(doc, "第四章 创新性说明", 1)
     innovations = [
-        ("不解密条件下的行为检测", "使用包长、方向、IAT、端口和连接上下文识别加密通信中的异常行为。"),
+        ("不解密条件下的风险证据识别", "使用包长、方向、IAT、端口和连接上下文识别加密通信中的可疑行为模式。"),
+        (
+            "Tor/NetCLR 任务边界治理",
+            "明确 Tor 不是攻击事实，NetCLR 二分类标签是条件漂移风险证据，不包装成恶意用户检测。",
+        ),
         ("旁路式安全架构", "不替换现有 Wazuh/Zeek/Suricata，只读取告警和日志，降低接入风险。"),
         ("误报治理导向", "训练分支保留阈值校准、良性对照和人工复核模板，面向实际安全运营。"),
         ("可追溯 Agent 报告", "JSON 中保留 evidence_bundle、quality_checks 和 tool_trace，便于复核。"),
@@ -359,14 +487,15 @@ def add_conclusion(doc: Document) -> None:
     add_heading(doc, "第五章 总结", 1)
     add_para(
         doc,
-        "MineShark 围绕第七题要求实现了加密通信流量分析、异常行为检测模型和正常/攻击流量对比实验，并通过 Wazuh、Zeek、"
-        "Suricata、RAG 与 Agent 把模型风险线索转化为可复核报告。当前作品已经具备参赛展示所需的主线闭环，后续可继续扩展"
-        "更大规模数据集、更多协议类型、业务白名单、前端可视化和报告质量自动评估。",
+        "MineShark 围绕第七题要求实现了加密通信流量分析、风险证据识别模型和正常/风险流量对比实验，并通过 Wazuh、Zeek、"
+        "Suricata、RAG 与 Agent 把模型风险线索转化为可复核报告。当前最终实验主线已经收束为 NetCLR Tor 二分类风险证据基线；"
+        "其低误报约束下 precision 较高，但 recall 很低，适合用于高置信风险证据提示和辅助研判，不适合包装成成熟检测系统。"
+        "后续可继续扩展更合理的标签定义、更丰富的流量特征、更多协议类型、业务白名单、前端可视化和报告质量自动评估。",
     )
     add_para(
         doc,
-        "作品的工程边界保持克制：不自动处置、不夸大模型结论、不提交真实密钥或大规模原始流量数据。这样的设计更符合安全系统"
-        "渐进式接入和人工复核的实际要求。",
+        "作品的工程边界保持克制：不自动处置、不把 Tor 流量等同于攻击事实、不夸大模型结论、不提交真实密钥或大规模原始流量数据。"
+        "这样的设计更符合安全系统渐进式接入和人工复核的实际要求。",
     )
 
 
@@ -380,7 +509,7 @@ def add_references(doc: Document) -> None:
         "Zeek Project. Zeek Documentation[EB/OL].",
         "Suricata Project. Suricata User Guide[EB/OL].",
         "Wazuh Project. Wazuh Documentation[EB/OL].",
-        "MineShark 项目文档：README、competition_submission、demo_jianli_walkthrough、reporting。",
+        "MineShark 项目文档：README、competition_submission、tor_dataset_strategy、final_tor_netclr_experiment_package、reporting。",
     ]
     for ref in refs:
         add_para(doc, ref, size=12)
@@ -393,8 +522,15 @@ def load_metrics(path: Path) -> Dict[str, Any]:
     return evaluate_scenarios(scenarios, threshold=0.70)
 
 
-def build_report(output: Path, metrics_path: Path) -> None:
+def load_netclr_summary(path: Path) -> Dict[str, Any]:
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return DEFAULT_NETCLR_SUMMARY
+
+
+def build_report(output: Path, metrics_path: Path, netclr_summary_path: Path) -> None:
     metrics = load_metrics(metrics_path)
+    netclr_summary = load_netclr_summary(netclr_summary_path)
     doc = Document()
     configure_document(doc)
     add_cover(doc)
@@ -402,7 +538,7 @@ def build_report(output: Path, metrics_path: Path) -> None:
     add_summary(doc)
     add_overview(doc)
     add_design(doc)
-    add_testing(doc, metrics)
+    add_testing(doc, metrics, netclr_summary)
     add_innovation(doc)
     add_conclusion(doc)
     add_references(doc)
@@ -413,6 +549,7 @@ def build_report(output: Path, metrics_path: Path) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build the anonymous MineShark competition report DOCX.")
     parser.add_argument("--metrics-json", default="outputs/competition/metrics.json")
+    parser.add_argument("--netclr-summary-json", default="outputs/final_tor_netclr_package/metrics_summary.json")
     parser.add_argument("--output", default="outputs/submission/MineShark_第七题作品报告_匿名版.docx")
     return parser
 
@@ -425,7 +562,10 @@ def main() -> None:
     metrics_path = Path(args.metrics_json)
     if not metrics_path.is_absolute():
         metrics_path = ROOT / metrics_path
-    build_report(output, metrics_path)
+    netclr_summary_path = Path(args.netclr_summary_json)
+    if not netclr_summary_path.is_absolute():
+        netclr_summary_path = ROOT / netclr_summary_path
+    build_report(output, metrics_path, netclr_summary_path)
     print(f"DOCX report: {output}")
 
 

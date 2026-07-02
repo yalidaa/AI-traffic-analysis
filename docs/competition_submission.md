@@ -38,6 +38,13 @@ WFlib CW 单标签页链路已经保留在仓库中，但它应作为备用实�
 
 ## NetCLR 最终实验包
 
+完整证据索引见：
+
+```text
+docs/final_tor_netclr_experiment_package.md
+outputs/final_tor_netclr_package/
+```
+
 数据来源与边界：
 
 ```text
@@ -222,6 +229,7 @@ Live 演示前必须确认 Wazuh 发行版、Indexer、Manager、Dashboard、Fil
 ```bash
 python scripts/docs/build_competition_report.py \
   --metrics-json outputs/competition/metrics.json \
+  --netclr-summary-json outputs/final_tor_netclr_package/metrics_summary.json \
   --output "E:/哈工大比赛文件/哈工大比赛文件/MineShark_第七题作品报告_匿名版.docx"
 ```
 

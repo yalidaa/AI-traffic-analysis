@@ -203,6 +203,7 @@ python scripts/agent/run_agent_audit.py --env-file .env --evidence-only --uid Cd
 docs/agent_rag_wazuh.md
 docs/demo_jianli_walkthrough.md
 docs/mineshark_console.md
+docs/production_deployment.md
 ```
 
 ## 模型训练与数据准备
@@ -239,6 +240,7 @@ Tor 加密流量数据集主线说明见：
 
 ```text
 docs/tor_dataset_strategy.md
+docs/final_tor_netclr_experiment_package.md
 configs/datasets/tor_research_registry.json
 ```
 

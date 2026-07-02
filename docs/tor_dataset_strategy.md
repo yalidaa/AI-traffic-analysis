@@ -33,6 +33,13 @@ Tracked configuration lives in `configs/datasets/tor_research_registry.json`. Lo
 
 ## NetCLR Binary Experiment Package
 
+Final evidence index:
+
+```text
+docs/final_tor_netclr_experiment_package.md
+outputs/final_tor_netclr_package/
+```
+
 Raw data:
 
 ```text

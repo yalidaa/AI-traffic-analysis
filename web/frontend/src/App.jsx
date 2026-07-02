@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import ReactFlow, { Background, Controls, MiniMap } from "reactflow";
+import remarkGfm from "remark-gfm";
 import {
   Activity,
   AlertTriangle,
@@ -75,6 +77,8 @@ const taskLabels = {
   "agent-report": "Agent 报告"
 };
 
+const REPORTS_PER_PAGE = 5;
+
 async function apiGet(path) {
   const response = await fetch(path);
   if (!response.ok) {
@@ -120,8 +124,18 @@ function alertKey(alert) {
   return alert?.alert_id || alert?._mineshark_alert_id || alert?.uid || alert?._mineshark_uid || "unknown";
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (item) => String(item).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}:${pad(date.getSeconds())}`;
+}
+
 function alertTime(alert) {
-  return alert?.timestamp || alert?._mineshark_timestamp || alert?.["@timestamp"] || alert?.generated_at || "-";
+  return formatDateTime(alert?.timestamp || alert?._mineshark_timestamp || alert?.["@timestamp"] || alert?.generated_at);
 }
 
 function srcIp(alert) {
@@ -448,7 +462,13 @@ function OverviewPage({ overview, tasks, reports, runTask, setActiveView, loadEv
         <MetricCard label="命中告警" value={totalAlerts} detail="MineShark AI 阈值 0.5+" tone="blue" icon={ShieldAlert} />
         <MetricCard label="高危线索" value={highAlerts} detail="概率 0.9 及以上" tone="red" icon={AlertTriangle} />
         <MetricCard label="最近任务" value={latestTask?.status || "none"} detail={latestTask ? taskLabels[latestTask.task_type] : "暂无历史"} tone="green" icon={Activity} />
-        <MetricCard label="报告状态" value={latestReport?.summary?.report_status || "none"} detail={latestReport?.finished_at || "暂无报告"} tone="amber" icon={FileText} />
+        <MetricCard
+          label="报告状态"
+          value={latestReport?.summary?.report_status || "none"}
+          detail={latestReport ? formatDateTime(latestReport.finished_at || latestReport.created_at) : "暂无报告"}
+          tone="amber"
+          icon={FileText}
+        />
       </div>
 
       <section className="panel chart-panel">
@@ -670,7 +690,53 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
   );
 }
 
+function MarkdownReport({ markdown, mode }) {
+  if (mode === "source") {
+    return <pre className="markdown-source">{markdown}</pre>;
+  }
+
+  return (
+    <div className="markdown-rendered">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+    </div>
+  );
+}
+
+function PaginationControls({ page, pageCount, total, pageSize, onPageChange }) {
+  if (total <= pageSize) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  return (
+    <div className="pagination-bar" aria-label="Report list pagination">
+      <span>
+        {start}-{end} / {total}
+      </span>
+      <div className="pagination-actions">
+        <button type="button" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
+          上一页
+        </button>
+        <strong>
+          {page} / {pageCount}
+        </strong>
+        <button type="button" onClick={() => onPageChange(page + 1)} disabled={page >= pageCount}>
+          下一页
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
+  const [reportMode, setReportMode] = useState("rendered");
+  const [reportPage, setReportPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(reports.length / REPORTS_PER_PAGE));
+  const visibleReports = reports.slice((reportPage - 1) * REPORTS_PER_PAGE, reportPage * REPORTS_PER_PAGE);
+  useEffect(() => {
+    setReportPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+  const markdown = selectedReport?.markdown || selectedReport?.report?.markdown_report || "暂无 Markdown 内容";
+
   return (
     <div className="view-grid reports-grid">
       <section className="panel report-list">
@@ -680,7 +746,7 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
         </div>
         <div className="report-items">
           {reports.length ? (
-            reports.map((report) => (
+            visibleReports.map((report) => (
               <button
                 key={report.id}
                 type="button"
@@ -688,7 +754,9 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
                 onClick={() => loadReport(report.id)}
               >
                 <strong>{taskLabels[report.task_type] || report.task_type}</strong>
-                <span>{report.finished_at || report.created_at}</span>
+                <span className="time-text" title={report.finished_at || report.created_at || ""}>
+                  {formatDateTime(report.finished_at || report.created_at)}
+                </span>
                 <StatusPill status={report.status} />
               </button>
             ))
@@ -696,15 +764,40 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
             <EmptyState title="暂无报告" detail="运行 Agent 报告后会出现在这里。" />
           )}
         </div>
+        <PaginationControls
+          page={reportPage}
+          pageCount={pageCount}
+          total={reports.length}
+          pageSize={REPORTS_PER_PAGE}
+          onPageChange={setReportPage}
+        />
       </section>
       <section className="panel report-reader">
         <div className="panel-head">
-          <h2>Markdown 研判报告</h2>
-          <FileText size={18} />
+          <h2>研判报告</h2>
+          <div className="panel-actions">
+            <div className="segmented-control" aria-label="报告显示模式">
+              <button
+                type="button"
+                className={reportMode === "rendered" ? "active" : ""}
+                onClick={() => setReportMode("rendered")}
+              >
+                渲染
+              </button>
+              <button
+                type="button"
+                className={reportMode === "source" ? "active" : ""}
+                onClick={() => setReportMode("source")}
+              >
+                源码
+              </button>
+            </div>
+            <FileText size={18} />
+          </div>
         </div>
         {selectedReport ? (
           <article className="markdown-body">
-            <pre>{selectedReport.markdown || selectedReport.report?.markdown_report || "暂无 Markdown 内容"}</pre>
+            <MarkdownReport markdown={markdown} mode={reportMode} />
           </article>
         ) : (
           <EmptyState title="未选择报告" detail="左侧列表为空或尚未加载报告快照。" />
@@ -742,8 +835,8 @@ function HistoryPage({ health, tasks, runTask, refreshAll }) {
                 <tr key={task.id}>
                   <td>{taskLabels[task.task_type] || task.task_type}</td>
                   <td><StatusPill status={task.status} /></td>
-                  <td>{task.created_at}</td>
-                  <td>{task.finished_at || "-"}</td>
+                  <td title={task.created_at || ""}>{formatDateTime(task.created_at)}</td>
+                  <td title={task.finished_at || ""}>{formatDateTime(task.finished_at)}</td>
                   <td>{task.error || task.summary?.report_status || task.summary?.preflight_ok?.toString() || "-"}</td>
                 </tr>
               ))}

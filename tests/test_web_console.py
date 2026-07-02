@@ -1,6 +1,7 @@
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import time
@@ -21,7 +22,7 @@ if FASTAPI_AVAILABLE:
 
     from mineshark.web.api import create_app
 from mineshark.web.database import ConsoleDatabase
-from mineshark.web.tasks import TaskManager, build_agent_args
+from mineshark.web.tasks import TaskManager, apply_console_fallbacks, build_agent_args
 
 
 def write_env(root: Path) -> Path:
@@ -135,6 +136,32 @@ class WebConsoleStorageTests(unittest.TestCase):
         self.assertFalse(args.evidence_only)
         self.assertEqual(args.threshold, 0.7)
         self.assertEqual(args.max_events, 3)
+
+    def test_agent_report_falls_back_without_deepseek_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / ".env"
+            env_file.write_text("MINESHARK_AI_ALERTS_PATH=missing.json\n", encoding="utf-8")
+            args = build_agent_args("agent-report", {"env_file": str(env_file)})
+            saved_env = {
+                key: os.environ.get(key)
+                for key in [
+                    "DEEPSEEK_API_KEY",
+                    "MINESHARK_AI_ALERTS_PATH",
+                ]
+            }
+
+            try:
+                os.environ.pop("DEEPSEEK_API_KEY", None)
+                summary = apply_console_fallbacks("agent-report", args)
+            finally:
+                for key, value in saved_env.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
+            self.assertTrue(args.evidence_only)
+            self.assertEqual(summary["agent_report_fallback"], "evidence_only_no_deepseek_api_key")
 
 
 @unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi is not installed")

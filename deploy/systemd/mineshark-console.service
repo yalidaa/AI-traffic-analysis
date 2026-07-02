@@ -1,0 +1,21 @@
+[Unit]
+Description=MineShark Console sidecar triage service
+After=network-online.target
+Wants=network-online.target
+Documentation=README.md
+
+[Service]
+Type=simple
+User=mineshark
+Group=mineshark
+WorkingDirectory=/opt/mineshark-console
+Environment=MINESHARK_ENV_FILE=/opt/mineshark-console/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/mineshark-console/.venv/bin/mineshark-console --host 0.0.0.0 --port 8008
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

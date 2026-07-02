@@ -13,7 +13,7 @@ from mineshark.agent.cli import (
     run_agent_audit,
     write_report,
 )
-from mineshark.config import PROJECT_ROOT
+from mineshark.config import PROJECT_ROOT, RuntimeConfig
 from mineshark.web.database import ConsoleDatabase
 
 
@@ -79,6 +79,21 @@ def build_agent_args(task_type: str, parameters: Dict[str, Any]) -> argparse.Nam
     )
 
 
+def apply_console_fallbacks(task_type: str, args: argparse.Namespace) -> Dict[str, Any]:
+    if task_type != "agent-report":
+        return {}
+    config = RuntimeConfig.from_env(args.env_file)
+    if config.deepseek_api_key:
+        return {}
+
+    args.evidence_only = True
+    args.task = "生成一次不调用外部大模型的证据链中文研判报告。"
+    return {
+        "agent_report_fallback": "evidence_only_no_deepseek_api_key",
+        "agent_report_fallback_reason": "DEEPSEEK_API_KEY is not set; generated deterministic evidence report.",
+    }
+
+
 def summarise_report(report: Dict[str, Any]) -> Dict[str, Any]:
     bundle = report.get("evidence_bundle") or {}
     preflight = report.get("preflight") or {}
@@ -134,6 +149,7 @@ class TaskManager:
         self.database.mark_running(task_id)
         try:
             args = build_agent_args(task_type, parameters)
+            fallback_summary = apply_console_fallbacks(task_type, args)
             report = self.runner(args)
             markdown = str(report.get("markdown_report") or "").strip() + "\n"
             snapshot_json, snapshot_md = self._snapshot_paths(task_id, task_type)
@@ -144,7 +160,7 @@ class TaskManager:
             self.writer(report, str(snapshot_json), str(snapshot_md))
             self.database.finish_task(
                 task_id,
-                summary=summarise_report(report),
+                summary={**summarise_report(report), **fallback_summary},
                 report=report,
                 markdown=markdown,
                 output_json_path=str(snapshot_json),
