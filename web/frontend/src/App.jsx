@@ -81,6 +81,7 @@ const REPORTS_PER_PAGE = 5;
 const REPORTS_HISTORY_LIMIT = 50;
 const ALERTS_LIMIT = 50;
 const ALERTS_PER_PAGE = 10;
+const EVIDENCE_ALERTS_PER_PAGE = 5;
 const TASKS_HISTORY_LIMIT = 50;
 const TASKS_PER_PAGE = 10;
 const MIN_TASK_BUSY_MS = 2000;
@@ -607,8 +608,8 @@ function AlertsPage({
 }) {
   const [alertPage, setAlertPage] = useState(1);
   const recentAlerts = alerts.slice(0, ALERTS_LIMIT);
-  const pageCount = Math.max(1, Math.ceil(recentAlerts.length / ALERTS_PER_PAGE));
-  const visibleAlerts = recentAlerts.slice((alertPage - 1) * ALERTS_PER_PAGE, alertPage * ALERTS_PER_PAGE);
+  const pageCount = Math.max(1, Math.ceil(recentAlerts.length / EVIDENCE_ALERTS_PER_PAGE));
+  const visibleAlerts = recentAlerts.slice((alertPage - 1) * EVIDENCE_ALERTS_PER_PAGE, alertPage * EVIDENCE_ALERTS_PER_PAGE);
 
   useEffect(() => {
     setAlertPage((current) => Math.min(current, pageCount));
@@ -656,7 +657,7 @@ function AlertsPage({
           page={alertPage}
           pageCount={pageCount}
           total={recentAlerts.length}
-          pageSize={ALERTS_PER_PAGE}
+          pageSize={EVIDENCE_ALERTS_PER_PAGE}
           onPageChange={setAlertPage}
         />
       </section>
