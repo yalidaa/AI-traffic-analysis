@@ -84,6 +84,9 @@ const ALERTS_PER_PAGE = 10;
 const TASKS_HISTORY_LIMIT = 50;
 const TASKS_PER_PAGE = 10;
 const MIN_TASK_BUSY_MS = 2000;
+const TASK_POLL_INTERVAL_MS = 1500;
+const MAX_TASK_POLL_MS = 30 * 60 * 1000;
+const RUNNING_TASK_REFRESH_MS = 5000;
 
 async function apiGet(path) {
   const response = await fetch(path);
@@ -138,6 +141,26 @@ function formatDateTime(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
     date.getMinutes()
   )}:${pad(date.getSeconds())}`;
+}
+
+function formatDurationMs(value) {
+  const totalSeconds = Math.max(0, Math.floor(value / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours}时${minutes}分${seconds}秒`;
+  if (minutes) return `${minutes}分${seconds}秒`;
+  return `${seconds}秒`;
+}
+
+function taskDuration(task) {
+  const started = new Date(task?.started_at || task?.created_at || "");
+  if (Number.isNaN(started.getTime())) return "-";
+  const finished = task?.finished_at ? new Date(task.finished_at) : null;
+  const ended = finished && !Number.isNaN(finished.getTime()) ? finished : task?.status === "running" ? new Date() : null;
+  if (!ended) return "-";
+  const duration = formatDurationMs(ended.getTime() - started.getTime());
+  return task?.status === "running" ? `已运行 ${duration}` : duration;
 }
 
 function alertTime(alert) {
@@ -244,19 +267,35 @@ function App() {
     }
   }, []);
 
+  const refreshTasks = useCallback(async () => {
+    try {
+      const tasksData = await apiGet(`/api/tasks?limit=${TASKS_HISTORY_LIMIT}`);
+      setTasks((tasksData.tasks || []).slice(0, TASKS_HISTORY_LIMIT));
+    } catch (exc) {
+      setError(exc.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshAll();
   }, [refreshAll]);
 
+  useEffect(() => {
+    if (!tasks.some((task) => ["queued", "running"].includes(task.status))) return undefined;
+    const timer = window.setInterval(refreshTasks, RUNNING_TASK_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [refreshTasks, tasks]);
+
   const pollTask = useCallback(
     async (taskId) => {
       let lastTask = null;
-      for (let index = 0; index < 80; index += 1) {
+      const deadline = Date.now() + MAX_TASK_POLL_MS;
+      while (Date.now() < deadline) {
         const payload = await apiGet(`/api/tasks/${taskId}`);
         lastTask = payload.task;
         setTasks((current) => [lastTask, ...current.filter((task) => task.id !== lastTask.id)].slice(0, TASKS_HISTORY_LIMIT));
         if (["succeeded", "failed"].includes(lastTask.status)) break;
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, TASK_POLL_INTERVAL_MS));
       }
       await refreshAll();
       return lastTask;
@@ -909,6 +948,7 @@ function HistoryPage({ health, tasks, runTask, refreshAll, busyTask }) {
                 <th>状态</th>
                 <th>创建时间</th>
                 <th>完成时间</th>
+                <th>耗时</th>
                 <th>摘要</th>
               </tr>
             </thead>
@@ -919,6 +959,7 @@ function HistoryPage({ health, tasks, runTask, refreshAll, busyTask }) {
                   <td><StatusPill status={task.status} /></td>
                   <td title={task.created_at || ""}>{formatDateTime(task.created_at)}</td>
                   <td title={task.finished_at || ""}>{formatDateTime(task.finished_at)}</td>
+                  <td>{taskDuration(task)}</td>
                   <td>{task.error || task.summary?.report_status || task.summary?.preflight_ok?.toString() || "-"}</td>
                 </tr>
               ))}
