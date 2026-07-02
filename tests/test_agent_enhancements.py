@@ -178,6 +178,17 @@ class AgentEnhancementTests(unittest.TestCase):
         self.assertEqual(zeek["events"][0]["uid"], "Cdemo1")
         self.assertIn("C2", suricata["alerts"][0]["alert"]["signature"])
 
+    def test_ai_alert_reader_accepts_ai_confidence_score(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ai_alerts.json"
+            path.write_text(
+                '{"uid":"C1","ai_confidence":0.91,"alert_type":"MineShark_Encrypted_Detection"}\n',
+                encoding="utf-8",
+            )
+            result = query_mineshark_ai_alerts(path, min_probability=0.5)
+            self.assertEqual(result["matched"], 1)
+            self.assertEqual(result["alerts"][0]["_mineshark_score"], 0.91)
+
     def test_rag_jsonl_fallback_keeps_offline_demo_useful(self):
         fixture = ROOT / "tests" / "fixtures" / "demo_event"
         toolbox = AgentToolbox(make_config(fixture), top_k=2)

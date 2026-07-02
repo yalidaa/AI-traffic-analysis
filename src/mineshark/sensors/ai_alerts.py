@@ -11,6 +11,7 @@ SCORE_FIELDS = {
     "risk_score",
     "score",
     "confidence",
+    "ai_confidence",
     "model_score",
     "ai_score",
     "p_malware",
