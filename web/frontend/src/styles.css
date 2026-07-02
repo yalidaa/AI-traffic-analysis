@@ -455,6 +455,12 @@ h2 {
   overflow: auto;
 }
 
+.table-caption {
+  margin: -4px 0 12px;
+  color: #8aa0b8;
+  font-size: 13px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

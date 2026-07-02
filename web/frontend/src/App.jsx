@@ -78,6 +78,9 @@ const taskLabels = {
 };
 
 const REPORTS_PER_PAGE = 5;
+const TASKS_HISTORY_LIMIT = 50;
+const TASKS_PER_PAGE = 10;
+const MIN_TASK_BUSY_MS = 2000;
 
 async function apiGet(path) {
   const response = await fetch(path);
@@ -164,10 +167,10 @@ function StatusPill({ status }) {
   );
 }
 
-function IconButton({ icon: Icon, label, onClick, disabled, variant = "primary", title }) {
+function IconButton({ icon: Icon, label, onClick, disabled, variant = "primary", title, iconClassName = "" }) {
   return (
     <button className={`button button-${variant}`} type="button" onClick={onClick} disabled={disabled} title={title || label}>
-      <Icon size={16} />
+      <Icon size={16} className={iconClassName} />
       <span>{label}</span>
     </button>
   );
@@ -220,14 +223,14 @@ function App() {
         apiGet("/api/health"),
         apiGet("/api/overview"),
         apiGet("/api/alerts?threshold=0.5&limit=50"),
-        apiGet("/api/tasks?limit=40"),
+        apiGet(`/api/tasks?limit=${TASKS_HISTORY_LIMIT}`),
         apiGet("/api/reports?limit=40")
       ]);
       setHealth(healthData);
       setOverview(overviewData);
       setAlerts(alertsData.alerts || []);
       setAlertsMeta(alertsData);
-      setTasks(tasksData.tasks || []);
+      setTasks((tasksData.tasks || []).slice(0, TASKS_HISTORY_LIMIT));
       setReports(reportsData.reports || []);
       setSelectedAlert((current) => current || (alertsData.alerts || [])[0] || null);
       setSelectedReport((current) => current || (reportsData.reports || [])[0] || null);
@@ -248,7 +251,7 @@ function App() {
       for (let index = 0; index < 80; index += 1) {
         const payload = await apiGet(`/api/tasks/${taskId}`);
         lastTask = payload.task;
-        setTasks((current) => [lastTask, ...current.filter((task) => task.id !== lastTask.id)].slice(0, 40));
+        setTasks((current) => [lastTask, ...current.filter((task) => task.id !== lastTask.id)].slice(0, TASKS_HISTORY_LIMIT));
         if (["succeeded", "failed"].includes(lastTask.status)) break;
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
@@ -260,6 +263,7 @@ function App() {
 
   const runTask = useCallback(
     async (taskType, extra = {}) => {
+      const startedAt = Date.now();
       setBusyTask(taskType);
       setError("");
       try {
@@ -278,6 +282,10 @@ function App() {
       } catch (exc) {
         setError(exc.message);
       } finally {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < MIN_TASK_BUSY_MS) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_TASK_BUSY_MS - elapsed));
+        }
         setBusyTask(null);
       }
     },
@@ -408,8 +416,21 @@ function App() {
             <h1>MineShark Console</h1>
           </div>
           <div className="topbar-actions">
-            <IconButton icon={Play} label="Preflight" onClick={() => runTask("preflight")} disabled={!!busyTask} variant="ghost" />
-            <IconButton icon={BrainCircuit} label="生成报告" onClick={() => runTask("agent-report")} disabled={!!busyTask} />
+            <IconButton
+              icon={busyTask === "preflight" ? Loader2 : Play}
+              iconClassName={busyTask === "preflight" ? "spin" : ""}
+              label={busyTask === "preflight" ? "运行中" : "Preflight"}
+              onClick={() => runTask("preflight")}
+              disabled={!!busyTask}
+              variant="ghost"
+            />
+            <IconButton
+              icon={busyTask === "agent-report" ? Loader2 : BrainCircuit}
+              iconClassName={busyTask === "agent-report" ? "spin" : ""}
+              label={busyTask === "agent-report" ? "生成中" : "生成报告"}
+              onClick={() => runTask("agent-report")}
+              disabled={!!busyTask}
+            />
             <IconButton icon={RefreshCw} label="刷新" onClick={refreshAll} disabled={loading} variant="secondary" />
           </div>
         </header>
@@ -807,17 +828,37 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
   );
 }
 
-function HistoryPage({ health, tasks, runTask, refreshAll }) {
+function HistoryPage({ health, tasks, runTask, refreshAll, busyTask }) {
   const sourceRows = Object.entries(health?.sources || {});
+  const [taskPage, setTaskPage] = useState(1);
+  const recentTasks = tasks.slice(0, TASKS_HISTORY_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(recentTasks.length / TASKS_PER_PAGE));
+  const visibleTasks = recentTasks.slice((taskPage - 1) * TASKS_PER_PAGE, taskPage * TASKS_PER_PAGE);
+
+  useEffect(() => {
+    setTaskPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+
   return (
     <div className="view-grid history-grid">
       <section className="panel table-panel wide">
         <div className="panel-head">
           <h2>任务历史</h2>
           <div className="panel-actions">
-            <IconButton icon={TerminalSquare} label="Preflight" onClick={() => runTask("preflight")} variant="secondary" />
+            <IconButton
+              icon={busyTask === "preflight" ? Loader2 : TerminalSquare}
+              iconClassName={busyTask === "preflight" ? "spin" : ""}
+              label={busyTask === "preflight" ? "运行中" : "Preflight"}
+              onClick={() => runTask("preflight")}
+              disabled={!!busyTask}
+              variant="secondary"
+            />
             <IconButton icon={RefreshCw} label="刷新" onClick={refreshAll} variant="secondary" />
           </div>
+        </div>
+        <div className="table-caption">
+          最近 {recentTasks.length} 条记录
+          {health?.database?.tasks > recentTasks.length ? ` / 共 ${health.database.tasks} 条` : ""}
         </div>
         <div className="table-wrap">
           <table>
@@ -831,7 +872,7 @@ function HistoryPage({ health, tasks, runTask, refreshAll }) {
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <tr key={task.id}>
                   <td>{taskLabels[task.task_type] || task.task_type}</td>
                   <td><StatusPill status={task.status} /></td>
@@ -843,6 +884,13 @@ function HistoryPage({ health, tasks, runTask, refreshAll }) {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={taskPage}
+          pageCount={pageCount}
+          total={recentTasks.length}
+          pageSize={TASKS_PER_PAGE}
+          onPageChange={setTaskPage}
+        />
       </section>
 
       <section className="panel source-status">
