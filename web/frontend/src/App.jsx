@@ -134,6 +134,17 @@ function alertKey(alert) {
   return alert?.alert_id || alert?._mineshark_alert_id || alert?.uid || alert?._mineshark_uid || "unknown";
 }
 
+function evidenceKeyFromAlert(alert) {
+  if (!alert) return "";
+  return [alert.alert_id || alert._mineshark_alert_id || "", alert.uid || alert._mineshark_uid || "", srcIp(alert)].join("|");
+}
+
+function evidenceKeyFromBundle(evidence) {
+  const query = evidence?.evidence_bundle?.query_keys || {};
+  if (!query.alert_id && !query.uid && !query.ip) return "";
+  return [query.alert_id || "", query.uid || "", query.ip || ""].join("|");
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -697,9 +708,10 @@ function AlertsPage({
   );
 }
 
-function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelectedAlert }) {
+function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelectedAlert, loading }) {
   const selected = selectedAlert || alerts?.[0];
   const [alertPage, setAlertPage] = useState(1);
+  const [autoLoadedKey, setAutoLoadedKey] = useState("");
   const graph = useMemo(() => buildEvidenceGraph(selected, evidence), [selected, evidence]);
   const bundle = evidence?.evidence_bundle || {};
   const counts = {
@@ -716,6 +728,17 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
   useEffect(() => {
     setAlertPage((current) => Math.min(current, pageCount));
   }, [pageCount]);
+
+  const selectedEvidenceKey = evidenceKeyFromAlert(selected);
+  const loadedEvidenceKey = evidenceKeyFromBundle(evidence);
+  const evidenceMatchesSelected = selectedEvidenceKey && selectedEvidenceKey === loadedEvidenceKey;
+  const evidenceTotal = Object.values(counts).reduce((sum, value) => sum + value, 0);
+
+  useEffect(() => {
+    if (!selected || loading || evidenceMatchesSelected || autoLoadedKey === selectedEvidenceKey) return;
+    setAutoLoadedKey(selectedEvidenceKey);
+    loadEvidence(selected);
+  }, [autoLoadedKey, evidenceMatchesSelected, loadEvidence, loading, selected, selectedEvidenceKey]);
 
   return (
     <div className="view-grid evidence-grid">
@@ -744,16 +767,23 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
           <h2>证据覆盖</h2>
           <Network size={18} />
         </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <PieChart>
-            <Pie dataKey="value" data={Object.entries(counts).map(([name, value]) => ({ name, value }))} innerRadius={50} outerRadius={78}>
-              {Object.keys(counts).map((key) => (
-                <Cell key={key} fill={{ ai: "#38bdf8", wazuh: "#2dd4bf", zeek: "#a78bfa", suricata: "#f97316", rag: "#facc15" }[key]} />
-              ))}
-            </Pie>
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #26364f" }} />
-          </PieChart>
-        </ResponsiveContainer>
+        {evidenceTotal ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie dataKey="value" data={Object.entries(counts).map(([name, value]) => ({ name, value }))} innerRadius={50} outerRadius={78}>
+                {Object.keys(counts).map((key) => (
+                  <Cell key={key} fill={{ ai: "#38bdf8", wazuh: "#2dd4bf", zeek: "#a78bfa", suricata: "#f97316", rag: "#facc15" }[key]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ background: "#111827", border: "1px solid #26364f" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <EmptyState
+            title={loading ? "正在聚合证据" : "暂无证据覆盖"}
+            detail={selected ? "系统会自动查询当前告警，也可以点击刷新拓扑重试。" : "先在 AI 告警页选择一条告警。"}
+          />
+        )}
         <div className="source-list compact-list">
           <div><span>AI</span><strong>{counts.ai}</strong></div>
           <div><span>Wazuh</span><strong>{counts.wazuh}</strong></div>
