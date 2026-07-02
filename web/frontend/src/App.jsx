@@ -78,6 +78,9 @@ const taskLabels = {
 };
 
 const REPORTS_PER_PAGE = 5;
+const REPORTS_HISTORY_LIMIT = 50;
+const ALERTS_LIMIT = 50;
+const ALERTS_PER_PAGE = 10;
 const TASKS_HISTORY_LIMIT = 50;
 const TASKS_PER_PAGE = 10;
 const MIN_TASK_BUSY_MS = 2000;
@@ -222,16 +225,16 @@ function App() {
       const [healthData, overviewData, alertsData, tasksData, reportsData] = await Promise.all([
         apiGet("/api/health"),
         apiGet("/api/overview"),
-        apiGet("/api/alerts?threshold=0.5&limit=50"),
+        apiGet(`/api/alerts?threshold=0.5&limit=${ALERTS_LIMIT}`),
         apiGet(`/api/tasks?limit=${TASKS_HISTORY_LIMIT}`),
-        apiGet("/api/reports?limit=40")
+        apiGet(`/api/reports?limit=${REPORTS_HISTORY_LIMIT}`)
       ]);
       setHealth(healthData);
       setOverview(overviewData);
       setAlerts(alertsData.alerts || []);
       setAlertsMeta(alertsData);
       setTasks((tasksData.tasks || []).slice(0, TASKS_HISTORY_LIMIT));
-      setReports(reportsData.reports || []);
+      setReports((reportsData.reports || []).slice(0, REPORTS_HISTORY_LIMIT));
       setSelectedAlert((current) => current || (alertsData.alerts || [])[0] || null);
       setSelectedReport((current) => current || (reportsData.reports || [])[0] || null);
     } catch (exc) {
@@ -300,7 +303,7 @@ function App() {
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.set(key === "alert_id" ? "alert_id" : key, value);
       });
-      params.set("limit", "100");
+      params.set("limit", String(ALERTS_LIMIT));
       const payload = await apiGet(`/api/alerts?${params.toString()}`);
       setAlerts(payload.alerts || []);
       setAlertsMeta(payload);
@@ -563,6 +566,15 @@ function AlertsPage({
   loadEvidence,
   setActiveView
 }) {
+  const [alertPage, setAlertPage] = useState(1);
+  const recentAlerts = alerts.slice(0, ALERTS_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(recentAlerts.length / ALERTS_PER_PAGE));
+  const visibleAlerts = recentAlerts.slice((alertPage - 1) * ALERTS_PER_PAGE, alertPage * ALERTS_PER_PAGE);
+
+  useEffect(() => {
+    setAlertPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+
   return (
     <div className="view-grid alerts-grid">
       <section className="panel filter-panel wide">
@@ -596,7 +608,18 @@ function AlertsPage({
           <h2>AI 告警流</h2>
           <span className="muted">{alertsMeta.matched || 0} / {alertsMeta.total_records || 0}</span>
         </div>
-        <AlertsTable alerts={alerts} selectedAlert={selectedAlert} onSelect={setSelectedAlert} />
+        <div className="table-caption">
+          当前筛选 {recentAlerts.length} 条
+          {alertsMeta.matched > recentAlerts.length ? ` / 命中 ${alertsMeta.matched} 条` : ""}
+        </div>
+        <AlertsTable alerts={visibleAlerts} selectedAlert={selectedAlert} onSelect={setSelectedAlert} />
+        <PaginationControls
+          page={alertPage}
+          pageCount={pageCount}
+          total={recentAlerts.length}
+          pageSize={ALERTS_PER_PAGE}
+          onPageChange={setAlertPage}
+        />
       </section>
 
       <section className="panel detail-panel">
@@ -636,6 +659,7 @@ function AlertsPage({
 
 function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelectedAlert }) {
   const selected = selectedAlert || alerts?.[0];
+  const [alertPage, setAlertPage] = useState(1);
   const graph = useMemo(() => buildEvidenceGraph(selected, evidence), [selected, evidence]);
   const bundle = evidence?.evidence_bundle || {};
   const counts = {
@@ -645,6 +669,13 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
     suricata: bundle.suricata_alerts?.alerts?.length || 0,
     rag: bundle.rag_matches?.matches?.length || 0
   };
+  const recentAlerts = alerts.slice(0, ALERTS_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(recentAlerts.length / ALERTS_PER_PAGE));
+  const visibleAlerts = recentAlerts.slice((alertPage - 1) * ALERTS_PER_PAGE, alertPage * ALERTS_PER_PAGE);
+
+  useEffect(() => {
+    setAlertPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
 
   return (
     <div className="view-grid evidence-grid">
@@ -697,14 +728,22 @@ function EvidencePage({ selectedAlert, evidence, loadEvidence, alerts, setSelect
           <h2>可选告警</h2>
           <span className="muted">点击后可刷新拓扑</span>
         </div>
+        <div className="table-caption">最近 {recentAlerts.length} 条告警</div>
         <AlertsTable
-          alerts={alerts}
+          alerts={visibleAlerts}
           selectedAlert={selectedAlert}
           onSelect={(alert) => {
             setSelectedAlert(alert);
             loadEvidence(alert);
           }}
           compact
+        />
+        <PaginationControls
+          page={alertPage}
+          pageCount={pageCount}
+          total={recentAlerts.length}
+          pageSize={ALERTS_PER_PAGE}
+          onPageChange={setAlertPage}
         />
       </section>
     </div>
@@ -751,8 +790,9 @@ function PaginationControls({ page, pageCount, total, pageSize, onPageChange }) 
 function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
   const [reportMode, setReportMode] = useState("rendered");
   const [reportPage, setReportPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(reports.length / REPORTS_PER_PAGE));
-  const visibleReports = reports.slice((reportPage - 1) * REPORTS_PER_PAGE, reportPage * REPORTS_PER_PAGE);
+  const recentReports = reports.slice(0, REPORTS_HISTORY_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(recentReports.length / REPORTS_PER_PAGE));
+  const visibleReports = recentReports.slice((reportPage - 1) * REPORTS_PER_PAGE, reportPage * REPORTS_PER_PAGE);
   useEffect(() => {
     setReportPage((current) => Math.min(current, pageCount));
   }, [pageCount]);
@@ -765,8 +805,9 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
           <h2>报告列表</h2>
           <IconButton icon={BrainCircuit} label="生成报告" onClick={() => runTask("agent-report")} />
         </div>
+        <div className="table-caption">最近 {recentReports.length} 条报告</div>
         <div className="report-items">
-          {reports.length ? (
+          {recentReports.length ? (
             visibleReports.map((report) => (
               <button
                 key={report.id}
@@ -788,7 +829,7 @@ function ReportsPage({ reports, selectedReport, loadReport, runTask }) {
         <PaginationControls
           page={reportPage}
           pageCount={pageCount}
-          total={reports.length}
+          total={recentReports.length}
           pageSize={REPORTS_PER_PAGE}
           onPageChange={setReportPage}
         />
