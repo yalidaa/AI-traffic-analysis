@@ -13,6 +13,7 @@ Primary datasets should be selected from recent Tor / website-fingerprinting wor
 | Priority | Dataset family | Conference anchor | Role |
 | --- | --- | --- | --- |
 | P0 | AWF / Rimmer-style Tor WF traces | USENIX Security 2023 and ACM CCS 2023 references | Single-tab main benchmark |
+| P0 | WFlib CW / `CW.npz.zip` | Website-fingerprinting artifact collection | First single-label multiclass baseline |
 | P0 | ARES / Multitab-WF-Datasets | IEEE S&P 2023 | Multi-tab benchmark |
 | P0 | NetCLR drift-style traces | ACM CCS 2023 | Temporal drift benchmark |
 | P1 | Walkie-Talkie defended traces | USENIX Security 2023 references | Defense robustness |
@@ -29,6 +30,8 @@ Create the local data roots used by the first-stage plan:
 ```powershell
 New-Item -ItemType Directory -Force datasets/raw/tor
 New-Item -ItemType Directory -Force datasets/raw/tor/awf
+New-Item -ItemType Directory -Force datasets/raw/tor/wflib_cw/archives
+New-Item -ItemType Directory -Force datasets/raw/tor/wflib_cw/extracted
 New-Item -ItemType Directory -Force datasets/raw/tor/ares
 New-Item -ItemType Directory -Force datasets/raw/tor/netclr
 New-Item -ItemType Directory -Force datasets/raw/tor/walkie_talkie
@@ -103,6 +106,61 @@ python scripts/eval/run_tor_binary_eval.py \
   --output-dir outputs/tor_eval
 ```
 
+Prepare the first single-label closed-world WFlib CW view:
+
+```bash
+python scripts/data/prepare_tor_ppi.py \
+  --input datasets/raw/tor/wflib_cw/extracted/CW.npz \
+  --output datasets/experiments/ppi/tor/wflib_cw/CW.csv \
+  --default-app wflib_cw \
+  --max-len 128
+
+python scripts/data/check_tor_dataset_quality.py \
+  --input datasets/experiments/ppi/tor/wflib_cw \
+  --output-json outputs/tor_data_runs/cw_multiclass_baseline/quality.json \
+  --output-md outputs/tor_data_runs/cw_multiclass_baseline/quality.md
+```
+
+Run a smoke test first. This is only a fast chain validation run, not a final result:
+
+```bash
+python scripts/train/train_tor_multiclass.py \
+  --preset tor_cw_multiclass \
+  --cpu
+
+python scripts/eval/run_tor_multiclass_eval.py \
+  --checkpoint checkpoints/tor_cw_multiclass_baseline.pt \
+  --data-dir datasets/experiments/ppi/tor/wflib_cw \
+  --output-dir outputs/tor_data_runs/cw_multiclass_baseline \
+  --max-samples-per-class 20 \
+  --cpu
+```
+
+Run the first local GPU baseline with a larger per-class cap before deciding whether to train full CW:
+
+```powershell
+D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/train/train_tor_multiclass.py `
+  --data-dir datasets/experiments/ppi/tor/wflib_cw `
+  --save-path checkpoints/tor_cw_multiclass_gpu_cap200_v1.pt `
+  --output-dir outputs/tor_data_runs/cw_multiclass_gpu_cap200_v1 `
+  --task-name tor_cw_multiclass_cap200 `
+  --max-samples-per-class 200 `
+  --epochs 5 `
+  --batch-size 128 `
+  --embed-dim 128 `
+  --num-heads 4 `
+  --num-layers 2 `
+  --ff-dim 256 `
+  --seed 42
+
+D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/eval/run_tor_multiclass_eval.py `
+  --checkpoint checkpoints/tor_cw_multiclass_gpu_cap200_v1.pt `
+  --data-dir datasets/experiments/ppi/tor/wflib_cw `
+  --output-dir outputs/tor_data_runs/cw_multiclass_gpu_cap200_v1_eval `
+  --max-samples-per-class 200 `
+  --batch-size 256
+```
+
 ## Local Manifest Shape
 
 ```json
@@ -124,7 +182,7 @@ python scripts/eval/run_tor_binary_eval.py \
 
 ## First-Stage Label Semantics
 
-The current training pipeline remains binary:
+The binary training pipeline remains available:
 
 | Internal label | Report label | Meaning |
 | --- | --- | --- |
@@ -132,6 +190,8 @@ The current training pipeline remains binary:
 | `1` | `tor_risk_evidence` | Tor traffic risk evidence, such as monitored fingerprinting target, multi-tab risk fixture, drift stress case, or defended trace evaluation target. |
 
 Do not call label `1` "Tor malware". The model output is an operating point for traffic-side risk review.
+
+For WFlib `CW.npz.zip`, the first-stage single-label task is not binary. `APP` stores the website class from `y`, and the model reports closed-world website-fingerprinting metrics: accuracy, macro-F1, weighted-F1, top-1 accuracy, and top-5 accuracy. Report this as Tor encrypted traffic website-fingerprinting / risk-evidence classification, not as malware detection.
 
 ## Report Boundary
 

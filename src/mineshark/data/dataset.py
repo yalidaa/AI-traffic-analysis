@@ -118,6 +118,13 @@ def _open_text(path: str):
     return open(path, "r", encoding="utf-8", errors="ignore")
 
 
+def _sort_label_key(value: str):
+    try:
+        return (0, int(value))
+    except ValueError:
+        return (1, value)
+
+
 def _parse_ppi_raw(ppi_raw):
     ppi_obj = ppi_raw
     if isinstance(ppi_raw, str):
@@ -284,6 +291,168 @@ def parse_ppi_file(
     return samples
 
 
+def _ppi_row_label(row: dict, label_field: str) -> str:
+    for key in (label_field, label_field.lower(), label_field.upper(), "APP", "app", "label", "class", "site"):
+        if key not in row:
+            continue
+        value = row[key]
+        if value is None:
+            continue
+        text = str(value)
+        if text != "":
+            return text
+    return "unknown"
+
+
+def collect_ppi_labels(
+    root_dirs: Sequence[str],
+    *,
+    label_field: str = "APP",
+    ppi_field: str = "PPI",
+) -> List[str]:
+    labels = set()
+    for root_dir in root_dirs:
+        for ppi_file in _iter_ppi_files(root_dir):
+            if ppi_file.endswith(".jsonl") or ppi_file.endswith(".jsonl.gz"):
+                with _open_text(ppi_file) as handle:
+                    for line in handle:
+                        text = line.strip()
+                        if not text:
+                            continue
+                        try:
+                            row = json.loads(text)
+                        except Exception:
+                            continue
+                        if isinstance(row, dict) and (row.get(ppi_field) or row.get("ppi")):
+                            labels.add(_ppi_row_label(row, label_field))
+                continue
+
+            with _open_text(ppi_file) as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    if row.get(ppi_field) or row.get("ppi"):
+                        labels.add(_ppi_row_label(row, label_field))
+    return sorted(labels, key=_sort_label_key)
+
+
+def parse_ppi_file_multiclass(
+    file_path: str,
+    class_to_idx: Dict[str, int],
+    max_len: int,
+    min_packets: int,
+    max_pkt_size: int,
+    max_iat: float,
+    ppi_field: str = "PPI",
+    label_field: str = "APP",
+    max_samples_per_class: int = 0,
+    class_counts: Dict[str, int] | None = None,
+) -> List[Dict[str, Sequence]]:
+    samples: List[Dict[str, Sequence]] = []
+    source = os.path.basename(file_path)
+    class_counts = class_counts if class_counts is not None else defaultdict(int)
+
+    def enough_samples() -> bool:
+        return (
+            max_samples_per_class > 0
+            and len(class_counts) >= len(class_to_idx)
+            and all(class_counts.get(name, 0) >= max_samples_per_class for name in class_to_idx)
+        )
+
+    def add_row(row: dict, row_source: str):
+        label_name = _ppi_row_label(row, label_field)
+        if label_name not in class_to_idx:
+            return
+        if max_samples_per_class > 0 and class_counts.get(label_name, 0) >= max_samples_per_class:
+            return
+        ppi_raw = row.get(ppi_field) or row.get("ppi")
+        parsed = _parse_ppi_raw(ppi_raw)
+        if parsed is None:
+            return
+        iats, dirs, sizes = parsed
+        sample = _build_sample_from_ppi(
+            iats,
+            dirs,
+            sizes,
+            label=class_to_idx[label_name],
+            source=row_source,
+            max_len=max_len,
+            min_packets=min_packets,
+            max_pkt_size=max_pkt_size,
+            max_iat=max_iat,
+        )
+        if sample is not None:
+            sample["label_name"] = label_name
+            samples.append(sample)
+            class_counts[label_name] = class_counts.get(label_name, 0) + 1
+
+    if file_path.endswith(".jsonl") or file_path.endswith(".jsonl.gz"):
+        with _open_text(file_path) as handle:
+            for line_idx, line in enumerate(handle, start=1):
+                if enough_samples():
+                    break
+                text = line.strip()
+                if not text:
+                    continue
+                try:
+                    row = json.loads(text)
+                except Exception:
+                    continue
+                if isinstance(row, dict):
+                    add_row(row, str(row.get("SOURCE") or row.get("source") or f"{source}:{line_idx}"))
+        return samples
+
+    with _open_text(file_path) as handle:
+        reader = csv.DictReader(handle)
+        for row_idx, row in enumerate(reader, start=2):
+            if enough_samples():
+                break
+            add_row(row, str(row.get("SOURCE") or row.get("source") or f"{source}:{row_idx}"))
+
+    return samples
+
+
+def load_multiclass_samples_from_ppi_dirs(
+    ppi_dirs: Sequence[str],
+    max_len: int = 128,
+    min_packets: int = 3,
+    max_pkt_size: int = 2000,
+    max_iat: float = 10.0,
+    ppi_field: str = "PPI",
+    label_field: str = "APP",
+    class_names: Sequence[str] | None = None,
+    max_samples_per_class: int = 0,
+) -> tuple[List[Dict[str, Sequence]], List[str], Dict[str, int]]:
+    class_names = (
+        list(class_names)
+        if class_names is not None
+        else collect_ppi_labels(ppi_dirs, label_field=label_field, ppi_field=ppi_field)
+    )
+    class_to_idx = {name: idx for idx, name in enumerate(class_names)}
+    samples: List[Dict[str, Sequence]] = []
+    class_counts: Dict[str, int] = defaultdict(int)
+    for ppi_dir in ppi_dirs:
+        for ppi_file in _iter_ppi_files(ppi_dir):
+            samples.extend(
+                parse_ppi_file_multiclass(
+                    ppi_file,
+                    class_to_idx=class_to_idx,
+                    max_len=max_len,
+                    min_packets=min_packets,
+                    max_pkt_size=max_pkt_size,
+                    max_iat=max_iat,
+                    ppi_field=ppi_field,
+                    label_field=label_field,
+                    max_samples_per_class=max_samples_per_class,
+                    class_counts=class_counts,
+                )
+            )
+            if max_samples_per_class > 0 and all(
+                class_counts.get(name, 0) >= max_samples_per_class for name in class_to_idx
+            ):
+                break
+    return samples, class_names, class_to_idx
+
+
 def load_samples_from_ppi_dirs(
     malware_dir: str,
     benign_dir: str,
@@ -342,6 +511,31 @@ def cap_samples_per_source(
         bucket = grouped[key]
         if len(bucket) > max_samples_per_source:
             capped.extend(rng.sample(bucket, max_samples_per_source))
+        else:
+            capped.extend(bucket)
+
+    rng.shuffle(capped)
+    return capped
+
+
+def cap_samples_per_class(
+    samples: List[Dict[str, Sequence]],
+    max_samples_per_class: int,
+    seed: int = 42,
+) -> List[Dict[str, Sequence]]:
+    if max_samples_per_class <= 0:
+        return samples
+
+    rng = random.Random(seed)
+    grouped = defaultdict(list)
+    for sample in samples:
+        grouped[sample["label"]].append(sample)
+
+    capped = []
+    for label in sorted(grouped.keys()):
+        bucket = grouped[label]
+        if len(bucket) > max_samples_per_class:
+            capped.extend(rng.sample(bucket, max_samples_per_class))
         else:
             capped.extend(bucket)
 

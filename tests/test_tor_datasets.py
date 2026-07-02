@@ -15,6 +15,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from mineshark.data.tor_quality import inspect_tor_ppi
+from mineshark.data.dataset import load_multiclass_samples_from_ppi_dirs
 from mineshark.data.prepare_tor_ppi import convert_path
 from mineshark.data.tor_registry import (
     load_research_registry,
@@ -22,6 +23,7 @@ from mineshark.data.tor_registry import (
     validate_local_manifest,
 )
 from mineshark.evaluation.tor_eval import _metrics_for_rows
+from mineshark.training.train_multiclass import multiclass_metrics
 from mineshark.training.train import EXPERIMENT_PRESETS, apply_experiment_preset, build_parser
 
 
@@ -154,6 +156,69 @@ class TorDatasetTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
 
         self.assertEqual(rows[0]["APP"], "0")
+
+    def test_tor_npz_signed_timestamps_convert_to_ppi(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            npz_input = root / "signed_time.npz"
+            output = root / "signed_time_ppi.csv"
+
+            np.savez(
+                npz_input,
+                X=np.array([[0.05, -0.20, 0.35, 0.0]], dtype=np.float32),
+                y=np.array(["site_a"]),
+            )
+
+            stats = convert_path(npz_input, output, default_app="fallback_tor", min_packets=3, max_len=4)
+            self.assertEqual(stats["saved"], 1)
+            with output.open("r", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+
+        ppi = json.loads(rows[0]["PPI"])
+        self.assertEqual(ppi[1], [1.0, -1.0, 1.0])
+        self.assertEqual(ppi[2], [514.0, 514.0, 514.0])
+        for actual, expected in zip(ppi[0], [0.0, 0.15, 0.15]):
+            self.assertAlmostEqual(actual, expected, places=5)
+
+    def test_multiclass_ppi_loader_maps_app_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ppi = root / "cw.csv"
+            with ppi.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["PPI", "APP", "SOURCE"])
+                writer.writeheader()
+                for app in ("0", "2", "1"):
+                    writer.writerow(
+                        {
+                            "PPI": json.dumps([[0.0, 0.1, 0.2], [1, -1, 1], [514, 514, 514]]),
+                            "APP": app,
+                            "SOURCE": f"trace-{app}",
+                        }
+                    )
+
+            samples, class_names, class_to_idx = load_multiclass_samples_from_ppi_dirs([str(root)], max_len=4)
+
+        self.assertEqual(class_names, ["0", "1", "2"])
+        self.assertEqual(class_to_idx, {"0": 0, "1": 1, "2": 2})
+        self.assertEqual([sample["label"] for sample in samples], [0, 2, 1])
+        self.assertEqual([sample["label_name"] for sample in samples], ["0", "2", "1"])
+
+    def test_multiclass_metrics_include_top5(self):
+        labels = [0, 1, 2]
+        probs = np.array(
+            [
+                [0.7, 0.2, 0.1],
+                [0.1, 0.8, 0.1],
+                [0.4, 0.5, 0.1],
+            ],
+            dtype=np.float32,
+        )
+
+        metrics = multiclass_metrics(labels, probs)
+
+        self.assertAlmostEqual(metrics["accuracy"], 2 / 3)
+        self.assertAlmostEqual(metrics["top1_accuracy"], 2 / 3)
+        self.assertAlmostEqual(metrics["top5_accuracy"], 1.0)
 
     def test_manifest_validation_reports_invalid_records(self):
         registry = load_research_registry(ROOT / "configs" / "datasets" / "tor_research_registry.json")

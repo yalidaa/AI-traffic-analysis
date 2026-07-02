@@ -24,6 +24,19 @@
       "notes": "Use as the first reproducible Tor WF baseline. Convert packet or cell direction and timestamp sequences to PPI."
     },
     {
+      "id": "wflib-cw",
+      "priority": "P0",
+      "venue": "Website fingerprinting artifact collection",
+      "paper_or_artifact": "Website-Fingerprinting-Library closed-world dataset / Dataset for Website Fingerprinting Attack Evaluation",
+      "year_window": "2024-2026",
+      "task": "closed_world_website_fingerprinting",
+      "label_space": "website_class",
+      "expected_formats": ["npz"],
+      "recommended_role": "main_train_eval",
+      "source_url": "https://zenodo.org/records/13731720",
+      "notes": "First single-label multiclass baseline. Use CW.npz.zip only for the first local run; OW.npz.zip is left for later open-world experiments."
+    },
+    {
       "id": "ares-multitab",
       "priority": "P0",
       "venue": "IEEE Symposium on Security and Privacy",

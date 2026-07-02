@@ -128,7 +128,10 @@ def _row_to_record(row: Any, *, label: Any = None, source: str = "") -> dict[str
         values = _compact_sequence(_to_plain_list(row))
         numeric = _as_float_sequence(values)
         record = {"directions": values}
-        if numeric and any(abs(item) > 1.0 for item in numeric):
+        if numeric and any(0.0 < abs(item) < 1.0 for item in numeric):
+            record["timestamps"] = [abs(item) for item in numeric]
+            record["directions"] = [1 if item > 0 else -1 if item < 0 else 0 for item in numeric]
+        elif numeric and any(abs(item) > 1.0 for item in numeric):
             record["sizes"] = [abs(item) for item in numeric]
     if label is not None:
         record.setdefault("label", label)

@@ -48,6 +48,8 @@ mineshark-prepare-tor-ppi = "mineshark.data.prepare_tor_ppi:main"
 mineshark-tor-dataset-inventory = "mineshark.data.tor_registry:main"
 mineshark-check-tor-quality = "mineshark.data.tor_quality:main"
 mineshark-tor-binary-eval = "mineshark.evaluation.tor_eval:main"
+mineshark-train-tor-multiclass = "mineshark.training.train_multiclass:cli"
+mineshark-tor-multiclass-eval = "mineshark.evaluation.tor_multiclass_eval:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
