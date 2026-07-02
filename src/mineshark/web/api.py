@@ -141,7 +141,7 @@ def create_app(
     @app.get("/api/overview")
     def overview() -> Dict[str, Any]:
         runtime = config()
-        alerts_result = query_mineshark_ai_alerts(runtime.mineshark_ai_alerts_path, min_probability=0.5, limit=50)
+        alerts_result = query_mineshark_ai_alerts(runtime.mineshark_ai_alerts_path, min_probability=None, limit=50)
         alerts = alerts_result.get("alerts", [])
         risk_counts = {"high": 0, "medium": 0, "low": 0, "informational": 0, "unknown": 0}
         for alert in alerts:

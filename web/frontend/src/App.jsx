@@ -534,7 +534,7 @@ function OverviewPage({ overview, tasks, reports, runTask, setActiveView, loadEv
   return (
     <div className="view-grid overview-grid">
       <div className="metrics-row">
-        <MetricCard label="命中告警" value={totalAlerts} detail="MineShark AI 阈值 0.5+" tone="blue" icon={ShieldAlert} />
+        <MetricCard label="AI 记录" value={totalAlerts} detail="最近 50 条告警记录" tone="blue" icon={ShieldAlert} />
         <MetricCard label="高危线索" value={highAlerts} detail="概率 0.9 及以上" tone="red" icon={AlertTriangle} />
         <MetricCard label="最近任务" value={latestTask?.status || "none"} detail={latestTask ? taskLabels[latestTask.task_type] : "暂无历史"} tone="green" icon={Activity} />
         <MetricCard

@@ -21,7 +21,7 @@ def _load_dotenv(env_file: Optional[str] = None) -> None:
         return
 
     if path.exists():
-        load_dotenv(path)
+        load_dotenv(path, override=env_file is not None)
 
 
 def _env_bool(name: str, default: bool) -> bool:

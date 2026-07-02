@@ -141,7 +141,6 @@ class WebConsoleStorageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env_file = Path(tmp) / ".env"
             env_file.write_text("MINESHARK_AI_ALERTS_PATH=missing.json\n", encoding="utf-8")
-            args = build_agent_args("agent-report", {"env_file": str(env_file)})
             saved_env = {
                 key: os.environ.get(key)
                 for key in [
@@ -151,6 +150,7 @@ class WebConsoleStorageTests(unittest.TestCase):
             }
 
             try:
+                args = build_agent_args("agent-report", {"env_file": str(env_file)})
                 os.environ.pop("DEEPSEEK_API_KEY", None)
                 summary = apply_console_fallbacks("agent-report", args)
             finally:
@@ -182,6 +182,35 @@ class WebConsoleApiTests(unittest.TestCase):
             alerts = client.get("/api/alerts", params={"threshold": 0.5})
             self.assertEqual(alerts.status_code, 200)
             self.assertEqual(alerts.json()["matched"], 1)
+
+    def test_overview_counts_all_risk_levels_without_thresholding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = write_env(root)
+            records = [
+                {"uid": "high", "malware_probability": 0.95},
+                {"uid": "medium", "malware_probability": 0.75},
+                {"uid": "low", "malware_probability": 0.55},
+                {"uid": "tip", "malware_probability": 0.25},
+                {"uid": "unknown"},
+            ]
+            (root / "ai_alerts.json").write_text(
+                "\n".join(json.dumps(record) for record in records),
+                encoding="utf-8",
+            )
+            app = create_app(env_file=str(env_file), database_path=root / "console.sqlite3")
+            client = TestClient(app)
+
+            overview = client.get("/api/overview")
+            self.assertEqual(overview.status_code, 200)
+            self.assertEqual(
+                overview.json()["alerts"]["risk_counts"],
+                {"high": 1, "medium": 1, "low": 1, "informational": 1, "unknown": 1},
+            )
+
+            alerts = client.get("/api/alerts", params={"threshold": 0.5})
+            self.assertEqual(alerts.status_code, 200)
+            self.assertEqual(alerts.json()["matched"], 4)
 
     def test_preflight_task_can_be_created_and_polled(self):
         with tempfile.TemporaryDirectory() as tmp:
