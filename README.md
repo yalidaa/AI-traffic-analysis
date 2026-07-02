@@ -13,6 +13,14 @@ MineShark 是一个面向网络安全场景的 AI 应用原型。项目在 Wazuh
 - 保留训练与数据准备能力，支持后续优化模型和对照实验。
 - 明确人工复核边界，避免把模型输出包装成自动处置结论。
 
+## 当前比赛口径
+
+当前 Tor 方向主线是 **NetCLR 条件漂移风险证据二分类基线**，不是“检测 Tor 恶意用户”。二分类训练视图使用 `NCDrift_inf.csv` 与 `NCDrift_sup.csv`，报告标签为 `netclr_inferior_condition` 和 `netclr_superior_condition`；它们只表示 NetCLR 网络条件差异下的流量侧风险证据，不表示恶意/正常事实。
+
+WFlib CW 单标签页链路已经接入并保留，但它天然是 95 类 closed-world website fingerprinting 任务。当前阶段只把它作为真实 Tor 单标签页数据处理、质量检查、训练评估的备用工程能力，不作为最终二分类主线。
+
+参赛汇报中必须明确：Tor 是匿名加密通信协议，Tor 用户不等于恶意用户；MineShark 输出的是风险线索和辅助研判证据，最终结论需要结合 Wazuh、Zeek、Suricata、RAG 证据和人工复核。
+
 ## 核心能力
 
 | 模块 | 作用 | 主要入口 |
@@ -233,6 +241,17 @@ Tor 加密流量数据集主线说明见：
 docs/tor_dataset_strategy.md
 configs/datasets/tor_research_registry.json
 ```
+
+当前推荐复现实验是 NetCLR 二分类基线：
+
+```text
+datasets/experiments/ppi/tor/netclr_drift_binary/normal/NCDrift_inf.csv
+datasets/experiments/ppi/tor/netclr_drift_binary/risk/NCDrift_sup.csv
+checkpoints/tor_netclr_drift_binary_gpu_v1.pt
+outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/
+```
+
+结果口径：低误报约束下 precision 较高，但 recall 很低；可以作为高置信风险证据基线，不能包装成成熟的 Tor 恶意检测系统。
 
 将 Tor website-fingerprinting JSONL/CSV/trace 序列转换为 PPI CSV：
 
