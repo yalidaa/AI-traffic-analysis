@@ -1,135 +1,167 @@
 {
-  "project_focus": "tor_encrypted_traffic",
-  "recommended_project_title": "MineShark: Tor encrypted anonymous-traffic risk analysis and LLM-assisted triage",
-  "selection_rule": "Prefer Tor traffic datasets that are used, released, or directly constructed by Tor / website-fingerprinting papers from USENIX Security, IEEE S&P, ACM CCS, and NDSS in the most recent three-year window.",
+  "project_focus": "tor_website_fingerprinting_dataset_first",
+  "recommended_project_title": "MineShark-Tor: Early-Stage and Lightweight Tor Encrypted Traffic Behavior Recognition",
+  "selection_rule": "Do not choose the paper dataset merely because it is already local. Prefer public Tor website-fingerprinting datasets released by, constructed by, or repeatedly reused in recent top security/networking venues such as USENIX Security, IEEE S&P, ACM CCS, NDSS, and PAM. The first paper dataset must support closed-world evaluation and should support at least one realistic extension: open-world, multi-tab, drift/cross-environment, defense robustness, or subpage/generalization.",
   "primary_tasks": [
     "closed_world_website_fingerprinting",
     "open_world_monitored_unmonitored",
+    "temporal_drift_or_cross_environment_evaluation",
     "multi_tab_website_fingerprinting",
-    "defended_trace_robustness",
-    "temporal_drift_evaluation"
+    "subpage_or_realistic_browsing_generalization",
+    "defended_trace_robustness"
+  ],
+  "survey_fields": [
+    "paper_or_venue",
+    "year",
+    "dataset_name",
+    "download_url",
+    "task_type",
+    "sample_scale",
+    "class_count",
+    "open_world",
+    "multi_tab",
+    "drift_or_cross_environment",
+    "reproducibility",
+    "estimated_download_size",
+    "fit_for_this_paper"
   ],
   "datasets": [
     {
-      "id": "awf-rimmer",
+      "id": "netclr-drift",
       "priority": "P0",
-      "venue": "USENIX Security / ACM CCS references",
-      "paper_or_artifact": "Rimmer-style AWF Tor website-fingerprinting traces reused by recent WF work",
-      "year_window": "2023-2025",
-      "task": "single_tab_website_fingerprinting",
-      "label_space": "website_class, monitored, unmonitored",
-      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "venue": "ACM CCS 2023",
+      "paper_or_artifact": "Realistic Website Fingerprinting by Augmenting Network Traces / NetCLR and NCDrift traces",
+      "year_window": "2023-2026",
+      "task": "temporal_drift_and_cross_condition_website_fingerprinting",
+      "label_space": "website_class, condition_split",
+      "expected_formats": ["npz", "npy", "csv"],
       "recommended_role": "main_train_eval",
-      "source_url": "https://www.usenix.org/conference/usenixsecurity23/presentation/shen-meng",
-      "notes": "Use as the first reproducible Tor WF baseline. Convert packet or cell direction and timestamp sequences to PPI."
+      "source_url": "https://dl.acm.org/doi/10.1145/3576915.3616639",
+      "artifact_url": "https://zenodo.org/records/13732130",
+      "local_paths": [
+        "datasets/raw/tor/netclr/extracted/NCDrift_inf/NCDrift_inf.npz",
+        "datasets/raw/tor/netclr/extracted/NCDrift_sup/NCDrift_sup.npz",
+        "datasets/experiments/ppi/tor/netclr_smoke/NCDrift_inf.csv",
+        "datasets/experiments/ppi/tor/netclr_smoke/NCDrift_sup.csv"
+      ],
+      "notes": "Strong P0 candidate because it is recent, top-venue related, locally available, and aligned with realistic WF, drift, and cross-condition evaluation. It should be evaluated as website-class data, not only as the old condition-pair binary risk baseline."
     },
     {
       "id": "wflib-cw",
       "priority": "P0",
-      "venue": "Website fingerprinting artifact collection",
-      "paper_or_artifact": "Website-Fingerprinting-Library closed-world dataset / Dataset for Website Fingerprinting Attack Evaluation",
+      "venue": "ACM CCS 2024 artifact",
+      "paper_or_artifact": "Dataset for Website Fingerprinting Attack Evaluation / Website Fingerprinting Library",
       "year_window": "2024-2026",
-      "task": "closed_world_website_fingerprinting",
-      "label_space": "website_class",
+      "task": "standardized_closed_world_and_open_world_website_fingerprinting",
+      "label_space": "website_class, monitored, unmonitored",
       "expected_formats": ["npz"],
       "recommended_role": "main_train_eval",
       "source_url": "https://zenodo.org/records/13731720",
-      "notes": "First single-label multiclass baseline. Use CW.npz.zip only for the first local run; OW.npz.zip is left for later open-world experiments."
+      "local_paths": [
+        "datasets/raw/tor/wflib_cw/extracted/CW.npz",
+        "datasets/experiments/ppi/tor/wflib_cw/CW.csv"
+      ],
+      "notes": "Strong reproducibility candidate. Local CW conversion already has 105730 samples and 95 classes. Use as a standardized closed-world reproduction or fallback if NetCLR multiclass interpretation becomes too awkward."
     },
     {
       "id": "ares-multitab",
       "priority": "P0",
-      "venue": "IEEE Symposium on Security and Privacy",
+      "venue": "IEEE Symposium on Security and Privacy 2023",
       "paper_or_artifact": "Robust Multi-tab Website Fingerprinting Attacks in the Wild / Multitab-WF-Datasets",
-      "year_window": "2023-2025",
+      "year_window": "2023-2026",
       "task": "multi_tab_website_fingerprinting",
       "label_space": "multi_label_website_set",
-      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "expected_formats": ["npz", "npy", "pkl", "csv", "trace"],
       "recommended_role": "multi_tab_eval",
       "source_url": "https://github.com/Xinhao-Deng/Multitab-WF-Datasets",
-      "notes": "Use for Tor multi-tab traffic behavior, micro/macro F1, and Hamming loss evaluation."
-    },
-    {
-      "id": "netclr-drift",
-      "priority": "P0",
-      "venue": "ACM CCS",
-      "paper_or_artifact": "Realistic Website Fingerprinting by Augmenting Network Traces / NetCLR drift-style traces",
-      "year_window": "2023-2025",
-      "task": "temporal_drift_and_augmentation",
-      "label_space": "website_class, time_split",
-      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
-      "recommended_role": "drift_eval",
-      "source_url": "https://arxiv.org/abs/2309.10147",
-      "notes": "Use to show that Tor traffic models need temporal validation instead of only random splits."
-    },
-    {
-      "id": "tmwf-multitab",
-      "priority": "P1",
-      "venue": "ACM CCS",
-      "paper_or_artifact": "Transformer-based Model for Multi-tab Website Fingerprinting Attack",
-      "year_window": "2023-2025",
-      "task": "multi_tab_transformer_baseline",
-      "label_space": "multi_label_website_set",
-      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
-      "recommended_role": "model_comparison",
-      "notes": "Use as a transformer-oriented Tor WF comparison point when the artifact or derived traces are available."
-    },
-    {
-      "id": "walkie-talkie-defended",
-      "priority": "P1",
-      "venue": "USENIX Security references",
-      "paper_or_artifact": "Walkie-Talkie defended Tor website-fingerprinting traces reused by robust WF evaluations",
-      "year_window": "2023-2025",
-      "task": "defended_trace_robustness",
-      "label_space": "website_class, defense_name",
-      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
-      "recommended_role": "defense_robustness_eval",
-      "notes": "Use to report how the detector behaves on defended or padded Tor traces."
+      "notes": "Authoritative multi-tab candidate. It is attractive for realism but should be a second-stage dataset because multi-label training and metrics are more complex than the first C-paper closed-world pipeline."
     },
     {
       "id": "wsc-usenix24",
       "priority": "P1",
-      "venue": "USENIX Security",
+      "venue": "USENIX Security 2024",
       "paper_or_artifact": "Stop, Don't Click Here Anymore: Boosting Website Fingerprinting by Considering Sets of Subpages",
       "year_window": "2024-2026",
-      "task": "subpage_set_website_fingerprinting",
+      "task": "subpage_set_and_realistic_browsing_generalization",
       "label_space": "website_class, subpage_set",
       "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
       "recommended_role": "subpage_generalization_eval",
       "source_url": "https://www.usenix.org/conference/usenixsecurity24/presentation/mitseva",
-      "notes": "Use as a methodology reference for collecting Tor subpage traces if the released dataset is unavailable."
+      "notes": "Important methodology reference for data diversity, subpages, and realistic user navigation. Use as a survey-backed motivation even if the artifact is not used in the first experiment."
     },
     {
-      "id": "ndss24-precise-circumvention",
+      "id": "tor-wf-index-pam26",
       "priority": "P1",
-      "venue": "NDSS",
-      "paper_or_artifact": "On Precisely Detecting Censorship Circumvention in Real-World Networks",
-      "year_window": "2024-2026",
-      "task": "tor_circumvention_detection_false_positive_boundary",
-      "label_space": "circumventing_flow, ordinary_flow",
-      "expected_formats": ["pcap", "jsonl", "csv"],
-      "recommended_role": "false_positive_boundary_reference",
-      "source_url": "https://www.ndss-symposium.org/ndss-paper/on-precisely-detecting-censorship-circumvention-in-real-world-networks/",
-      "notes": "Use as a methodology and FPR caution for Tor-related detection. It is not the first dataset to implement unless an accessible artifact is available."
+      "venue": "PAM 2026 dataset index",
+      "paper_or_artifact": "Tor Website Fingerprinting Dataset Index",
+      "year_window": "2026",
+      "task": "dataset_discovery_and_authority_check",
+      "label_space": "dataset_metadata",
+      "expected_formats": ["html", "csv", "external_links"],
+      "recommended_role": "external_realism_check",
+      "source_url": "https://www.rwails.org/tor_wf_index.html",
+      "notes": "Use as a living index to avoid choosing outdated or obscure data. It is not itself the first training dataset."
     },
     {
-      "id": "gtt23-real-tor",
+      "id": "awf-rimmer",
       "priority": "P2",
-      "venue": "External Tor measurement dataset",
-      "paper_or_artifact": "GTT23 genuine Tor traces",
-      "year_window": "2023-2025",
-      "task": "real_tor_external_validation",
-      "label_space": "real_tor_trace_metadata",
-      "expected_formats": ["pcap", "jsonl", "csv"],
-      "recommended_role": "external_realism_check",
-      "source_url": "https://zenodo.org/records/10620520",
-      "notes": "Use only as external realism evidence because it is not a primary four-top-conference dataset."
+      "venue": "Classic and reused WF baseline",
+      "paper_or_artifact": "Automated Website Fingerprinting / Rimmer-style AWF traces",
+      "year_window": "2017-2026",
+      "task": "classic_single_tab_website_fingerprinting",
+      "label_space": "website_class, monitored, unmonitored",
+      "expected_formats": ["npz", "npy", "jsonl", "csv", "trace"],
+      "recommended_role": "model_comparison",
+      "source_url": "https://dl.acm.org/doi/10.14722/ndss.2018.23105",
+      "local_paths": ["datasets/raw/tor/awf"],
+      "notes": "Classic baseline only. The local directory exists but currently has no files, so it must not be treated as ready."
+    },
+    {
+      "id": "df-sirinam",
+      "priority": "P2",
+      "venue": "ACM CCS 2018",
+      "paper_or_artifact": "Deep Fingerprinting / DF dataset",
+      "year_window": "2018-2026",
+      "task": "classic_closed_world_and_open_world_baseline",
+      "label_space": "website_class, monitored, unmonitored",
+      "expected_formats": ["npz", "npy", "pkl", "csv"],
+      "recommended_role": "model_comparison",
+      "source_url": "https://dl.acm.org/doi/10.1145/3243734.3243768",
+      "notes": "Classic strong baseline and frequently reused, but not new enough to be the authority anchor for this paper."
+    },
+    {
+      "id": "wang14-cumul-classics",
+      "priority": "P2",
+      "venue": "Classic WF literature",
+      "paper_or_artifact": "Wang14 / CUMUL-style datasets and features",
+      "year_window": "2014-2026",
+      "task": "classic_baseline_and_related_work",
+      "label_space": "website_class, monitored, unmonitored",
+      "expected_formats": ["trace", "cell", "csv", "npy"],
+      "recommended_role": "model_comparison",
+      "notes": "Useful for related work and baseline discussion, but not a latest authoritative main dataset."
     }
   ],
   "local_manifest_schema": {
     "required_fields": ["id", "dataset_id", "role", "label_type", "format", "path"],
-    "recommended_fields": ["venue", "paper_or_artifact", "split", "sample_count", "class_count", "notes"],
-    "allowed_formats": ["pcap", "npz", "npy", "jsonl", "json", "csv", "trace", "cell", "txt"],
-    "allowed_roles": ["main_train_eval", "multi_tab_eval", "drift_eval", "defense_robustness_eval", "subpage_generalization_eval", "external_realism_check", "model_comparison", "false_positive_boundary_reference"]
+    "recommended_fields": [
+      "venue",
+      "paper_or_artifact",
+      "split",
+      "sample_count",
+      "class_count",
+      "notes"
+    ],
+    "allowed_formats": ["pcap", "npz", "npy", "jsonl", "json", "csv", "trace", "cell", "txt", "pkl", "html"],
+    "allowed_roles": [
+      "main_train_eval",
+      "multi_tab_eval",
+      "drift_eval",
+      "defense_robustness_eval",
+      "subpage_generalization_eval",
+      "external_realism_check",
+      "model_comparison",
+      "false_positive_boundary_reference"
+    ]
   }
 }

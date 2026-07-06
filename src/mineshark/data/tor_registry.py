@@ -133,8 +133,8 @@ def render_registry_markdown(
             "",
             "## Boundary",
             "",
-            "Tor traffic is anonymous encrypted communication. The project should describe model output as risk evidence, "
-            "not as a direct claim that a Tor user is malicious.",
+            "Tor traffic is anonymous encrypted communication. MineShark-Tor studies passive website fingerprinting and "
+            "encrypted-traffic behavior recognition; it must not describe Tor users as malicious by default.",
             "",
         ]
     )
