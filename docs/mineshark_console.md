@@ -1,4 +1,6 @@
-# MineShark Console
+# 历史资料：MineShark Console
+
+> 本文属于历史工程展示资料，不是当前 `training` 分支的算法训练手册。当前训练目标请阅读 `README.md` 和 `docs/training_branch.md`。
 
 MineShark Console 是 `demo_jianli` 分支的深色 SOC 演示控制台。它用 FastAPI 暴露只读 API 和 Agent 任务入口，用 React/Vite 构建前端静态文件，并由 FastAPI 在同一端口托管。
 

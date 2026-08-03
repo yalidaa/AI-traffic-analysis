@@ -1,4 +1,4 @@
-name: Python checks
+name: Python 检查
 
 on:
   push:
@@ -9,22 +9,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: 检出仓库
         uses: actions/checkout@v6
 
-      - name: Install uv
+      - name: 安装 uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           enable-cache: true
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: uv sync --locked --extra web --extra ml --dev
 
-      - name: Run Ruff lint
+      - name: 运行 Ruff 静态检查
         run: uv run ruff check src tests
 
-      - name: Check Ruff formatting
+      - name: 检查 Ruff 格式
         run: uv run ruff format --check src tests
 
-      - name: Run tests
+      - name: 运行测试
         run: uv run --extra ml pytest

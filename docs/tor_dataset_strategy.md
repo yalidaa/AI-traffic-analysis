@@ -1,61 +1,61 @@
-# Tor Dataset Strategy
+# Tor 数据集策略
 
-## Current Research Framing
+## 当前研究定位
 
-MineShark-Tor is now framed as a thesis-oriented Tor website fingerprinting and encrypted traffic behavior recognition project.
+MineShark-Tor 当前定位为面向算法优化和论文实验的 Tor website fingerprinting 与加密流量行为识别项目。
 
-The first milestone is **not** model innovation. It is a one-week dataset phase:
+第一阶段**不是**模型创新，而是数据集专项阶段：
 
-1. identify authoritative Tor WF datasets used by recent top-tier security/networking papers;
-2. verify availability, scale, labels, and reproducibility;
-3. decide the main dataset before implementing DTB-Fusion and full experiments.
+1. 筛选近年安全和网络领域高水平论文使用的权威 Tor WF 数据集；
+2. 核验数据集可用性、规模、标签和可复现性；
+3. 在实现 DTB-Fusion 和完整实验前确定主数据集。
 
-This replaces the earlier competition-first framing where NetCLR was presented mainly as a condition-pair binary risk-evidence baseline.
+这一步替代了早期以竞赛为先的做法，避免只把 NetCLR 描述成 condition-pair 二分类风险证据基线。
 
-## Selection Policy
+## 选择原则
 
-The main paper dataset should satisfy these rules:
+论文主数据集应满足以下原则：
 
-- Prefer USENIX Security, IEEE S&P, ACM CCS, NDSS, and PAM sources.
-- Support Tor website fingerprinting or Tor encrypted traffic behavior recognition.
-- Support closed-world evaluation and ideally one realistic extension: open-world, drift/cross-environment, multi-tab, defense robustness, or subpage/generalization.
-- Have public artifacts, clear labels, and formats convertible to MineShark PPI/trace.
-- Avoid choosing a dataset merely because it is already local.
+- 优先选择来自 USENIX Security、IEEE S&P、ACM CCS、NDSS 和 PAM 的数据源。
+- 支持 Tor website fingerprinting 或 Tor 加密流量行为识别。
+- 支持 closed-world 评估，并最好覆盖一种现实扩展：open-world、漂移/跨环境、多标签页、防御鲁棒性或子页面/泛化。
+- 具有公开 artifact、清晰标签，以及可转换为 MineShark PPI/trace 的格式。
+- 不因为数据集已经存在于本地就直接选用。
 
-## Candidate Priority
+## 候选优先级
 
-| Priority | Dataset family | Role |
+| 优先级 | 数据集系列 | 角色 |
 | --- | --- | --- |
-| P0 | NetCLR / NCDrift | Main candidate for realistic WF, cross-condition, and drift-aware evaluation. |
-| P0 | WFlib CW/OW | Reproducible closed-world fallback and standardized artifact baseline. |
-| P1 | ARES / Multitab-WF-Datasets | Second-stage multi-tab extension after the first paper pipeline is stable. |
-| P1 | USENIX Security 2024 subpage-set WF | Methodology reference for data diversity and realistic browsing behavior. |
-| P1 | PAM 2026 Tor WF dataset index | Dataset discovery and authority check. |
-| P2 | AWF / DF / Wang14 / CUMUL | Classic baselines and related-work references, not latest-authority mainline. |
+| P0 | NetCLR / NCDrift | realistic WF、跨条件和漂移评估的主候选。 |
+| P0 | WFlib CW/OW | 可复现的 closed-world 备用数据和标准 artifact 基线。 |
+| P1 | ARES / Multitab-WF-Datasets | 第一阶段论文流水线稳定后的多标签页扩展。 |
+| P1 | USENIX Security 2024 subpage-set WF | 数据多样性和真实浏览行为的方法论参考。 |
+| P1 | PAM 2026 Tor WF dataset index | 数据集发现和权威性核验。 |
+| P2 | AWF / DF / Wang14 / CUMUL | 经典基线和相关工作参考，不作为最新权威主线。 |
 
-## Local Data Status
+## 本地数据状态
 
-Tracked metadata lives in:
+已跟踪的元数据位于：
 
 ```text
 configs/datasets/tor_research_registry.json
 datasets/experiments/tor_manifest.local.json
 ```
 
-Local data remains outside Git tracking.
+本地数据不进入 Git 跟踪。
 
-Current local candidates:
+当前本地候选：
 
-| Dataset | Local status | Use |
+| 数据集 | 本地状态 | 用途 |
 | --- | --- | --- |
-| NetCLR / NCDrift | Raw archives, extracted NPZ, and PPI CSV are present. | First P0 candidate. Re-check whether original data supports website-class, cross-condition, and trace-length experiments. |
-| WFlib CW | Raw archive, extracted NPZ, and 95-class PPI CSV are present. | Closed-world reproduction and fallback main dataset. |
-| AWF | Directory exists but contains no files. | Not ready. Do not claim it as a local dataset. |
-| ARES / multi-tab | Not downloaded. | Keep as second-stage candidate. |
+| NetCLR / NCDrift | 原始压缩包、解压 NPZ 和 PPI CSV 已存在。 | 第一候选；需要继续核验原始数据是否支持 website-class、跨条件和 trace 长度实验。 |
+| WFlib CW | 原始压缩包、解压 NPZ 和 95 类 PPI CSV 已存在。 | closed-world 复现和备用主数据集。 |
+| AWF | 目录存在但没有文件。 | 尚未准备好，不得声称本地已有可用数据集。 |
+| ARES / multi-tab | 尚未下载。 | 保留为第二阶段候选。 |
 
-## Required Reports
+## 必要报告
 
-Generate and keep local reports for the dataset phase:
+数据集阶段应生成并保留以下本地报告：
 
 ```powershell
 python scripts/data/render_tor_dataset_inventory.py `
@@ -64,7 +64,7 @@ python scripts/data/render_tor_dataset_inventory.py `
   --output outputs/tor_dataset_inventory.md
 ```
 
-Quality checks for converted PPI:
+转换后 PPI 的质量检查：
 
 ```powershell
 python scripts/data/check_tor_dataset_quality.py `
@@ -73,7 +73,7 @@ python scripts/data/check_tor_dataset_quality.py `
   --output-md outputs/tor_data_runs/wflib_cw_quality/quality.md
 ```
 
-For NetCLR, check both the old binary view and the multiclass view:
+NetCLR 需要同时检查旧二分类视图和多分类视图：
 
 ```powershell
 python scripts/data/check_tor_dataset_quality.py `
@@ -82,22 +82,22 @@ python scripts/data/check_tor_dataset_quality.py `
   --output-md outputs/tor_data_runs/netclr_multiclass_quality/quality.md
 ```
 
-## Dataset Decision Gate
+## 数据集决策门槛
 
-Proceed to DTB-Fusion only after these are true:
+满足以下条件后才能进入 DTB-Fusion：
 
-- `docs/tor_dataset_survey.md` records the candidate comparison.
-- `docs/tor_dataset_decision.md` explains the selected main and auxiliary datasets.
-- `outputs/tor_dataset_inventory.md` exists locally.
-- PPI quality reports exist for the selected local datasets.
-- The README states that the dataset choice went through a dedicated screening phase.
+- `docs/tor_dataset_survey.md` 已记录候选数据集比较。
+- `docs/tor_dataset_decision.md` 已说明主数据集和辅助数据集选择。
+- `outputs/tor_dataset_inventory.md` 在本地存在。
+- 选定本地数据集已有 PPI 质量报告。
+- README 已说明数据集选择经过专项筛选。
 
-## Reporting Boundary
+## 表述边界
 
-Use these sentences in thesis and defense materials:
+论文和答辩材料使用以下表述：
 
-- Tor is an anonymity communication system; Tor users are not malicious by default.
-- This project studies passive encrypted-traffic behavior recognition and website fingerprinting.
-- Dataset authority, reproducibility, and realistic assumptions are treated as first-class experiment requirements.
-- NetCLR condition files must not be described as normal-vs-malicious labels.
-- MineShark-Tor self-collected traces are optional system-demonstration data, not the first paper's required main dataset.
+- Tor 是匿名通信系统，Tor 用户默认不等于恶意用户。
+- 本项目研究被动加密流量行为识别和 website fingerprinting。
+- 数据集权威性、可复现性和现实假设是实验的一等要求。
+- NetCLR condition 文件不得描述为 normal 与 malicious 标签。
+- MineShark-Tor 自采 trace 是可选的系统展示数据，不是第一篇论文必须使用的主数据集。

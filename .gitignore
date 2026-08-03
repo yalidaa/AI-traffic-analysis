@@ -66,6 +66,8 @@ agent_reporter/outputs/
 # MineShark Console frontend build output
 web/frontend/node_modules/
 web/frontend/dist/
+build/
+.playwright-mcp/
 
 # OS noise
 Thumbs.db

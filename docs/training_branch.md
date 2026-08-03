@@ -1,22 +1,33 @@
-# Training Branch
+# AI 流量分析算法训练分支
 
-This branch is dedicated to research and iteration on the AI analysis module.
+本分支的核心目标是优化 MineShark 的 AI 流量分析算法模块，提高模型在真实加密流量场景中的准确性、稳定性和低误报运行能力。这里是算法迭代和实验验证区，不是系统部署或 Console 功能开发主线。
 
-Scope:
+## 主要工作
 
-- Traffic feature extraction and training data preparation.
-- Model training, evaluation, and experiment tracking.
-- AI alert generation and analysis quality improvements.
-- Integration points between model outputs, RAG evidence, and security reports.
+- 准备和审计训练数据，确认标签、样本来源、数据划分和数据质量。
+- 迭代流量特征提取、Transformer 模型结构、损失函数和训练参数。
+- 评估 accuracy、precision、recall、F1、FPR、FNR、混淆矩阵和不同阈值下的运行点。
+- 通过良性对照、误报样本、跨条件数据和分布变化检查模型稳定性。
+- 校准模型决策阈值，并记录模型版本、特征约定、训练数据和评估结果。
+- 为 Agent、报告和 Console 提供稳定、可解释的模型输出字段，但不在本分支实现系统处置动作。
 
-Current focus:
+## 当前算法场景
 
-- The report generator now supports benign/low-risk control samples through `--include-benign-sample`
-  or `--benign-log-file`.
-- Report JSON and Markdown outputs include risk explanations, evidence strength, contrast margin,
-  and a structured analyst review template for false-positive feedback and evidence-gap tracking.
+当前使用 Tor 加密流量行为识别作为主要研究和验证场景，重点关注数据集可靠性、早期观测、跨条件变化和低误报评估。Tor WF 是算法验证场景，不改变本分支“优化 AI 算法模块”的总目标。
 
-Non-goals:
+## 与 main 的协作边界
 
-- Replacing the stable demo branch behavior without validation.
-- Changing Wazuh deployment or production service assumptions unless required by AI analysis experiments.
+- `training` 负责算法、数据、训练、评估和模型契约的实验迭代。
+- `main` 负责系统功能、Sensor、Wazuh、Console、案件、部署和已验证算法能力的集成。
+- 未通过测试、数据审计或评估边界检查的模型结果，不应直接作为系统能力或生产效果宣传。
+- checkpoint、原始数据、实验日志和生成报告只保留在本地；仓库只提交代码、配置模板、测试和中文说明。
+
+## 验证要求
+
+每次算法改动至少记录数据来源、训练配置、评估划分、阈值和关键指标。小规模 smoke 实验只能验证路径和代码，不能替代完整准确率、误报率和泛化能力评估。
+
+## 非目标
+
+- 不在本分支替换系统部署或 Wazuh 生产服务。
+- 不把模型概率直接当作攻击事实。
+- 不用单一 accuracy 或单次实验结果代表真实泛化能力。

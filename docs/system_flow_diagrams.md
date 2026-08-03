@@ -1,4 +1,6 @@
-# MineShark 系统流程图
+# 历史资料：MineShark 系统流程图
+
+> 本文属于历史工程资料，图中的旧路径、旧定时服务和旧规则编号不能代表当前 `training` 算法训练入口。当前分支职责请阅读 `README.md` 和 `docs/training_branch.md`。
 
 这份文档用于把 `demo_jianli` 分支从黑盒拆开。建议阅读顺序：
 
@@ -261,7 +263,7 @@ sequenceDiagram
   "uid": "lab_replay_mineshark_20260527063525",
   "src_ip": "104.18.27.120",
   "src_port": 443,
-  "dst_ip": "192.168.30.152",
+  "dst_ip": "192.0.2.10",
   "dst_port": 57458,
   "proto": "tcp"
 }

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mineshark-traffic-analysis"
 version = "0.1.0"
-description = "MineShark encrypted traffic analysis and reporting toolkit."
+description = "MineShark 加密流量分析与报告工具集。"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

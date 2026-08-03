@@ -2,6 +2,7 @@ import argparse
 import importlib.util
 import json
 import os
+import sqlite3
 import sys
 import tempfile
 import time
@@ -84,6 +85,16 @@ def fake_runner(args: argparse.Namespace):
 
 
 class WebConsoleStorageTests(unittest.TestCase):
+    def test_database_connection_closes_after_context_exit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = ConsoleDatabase(Path(tmp) / "console.sqlite3")
+
+            with database.connect() as connection:
+                connection.execute("SELECT 1")
+
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connection.execute("SELECT 1")
+
     def test_database_saves_full_report_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             db = ConsoleDatabase(Path(tmp) / "console.sqlite3")

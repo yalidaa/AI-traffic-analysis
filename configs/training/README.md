@@ -1,5 +1,5 @@
-# Training Configs
+# 训练配置
 
-This folder is reserved for reusable experiment configuration files.
+本目录用于保存可复用的训练实验配置文件。
 
-Current training presets still live in `src/mineshark/training/train.py`; future work can move those presets into YAML files here.
+当前训练预设仍位于 `src/mineshark/training/train.py`。后续如需集中管理预设，可以将它们迁移为本目录中的 YAML 文件。

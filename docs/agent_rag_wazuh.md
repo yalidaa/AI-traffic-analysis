@@ -1,4 +1,6 @@
-# MineShark LangGraph Agent / RAG / Wazuh 接入
+# 历史资料：MineShark LangGraph Agent / RAG / Wazuh 接入
+
+> 本文属于历史工程资料，保留 Agent/RAG/Wazuh 旁路链路的说明，不是当前 `training` 分支的算法训练入口。当前算法改动请先阅读 `README.md` 和 `docs/training_branch.md`。
 
 本阶段新增一个 CLI 安全研判 Agent，用于旁路读取虚拟机中已经运行的 MineShark 实时 AI 告警，并把 Wazuh 告警、Zeek/Suricata 日志和安全知识库检索整合成中文研判报告。
 
@@ -13,12 +15,12 @@ Windows 主机主要用于代码开发、提交和同步；实际运行、RAG �
 ```text
 hostname: wazuh
 OS: Ubuntu 24.04.3 LTS
-IP: 192.168.30.152
+IP: 192.0.2.10（文档保留地址）
 Zeek: /opt/zeek/bin/zeek version 8.0.4
 AI engine: /opt/mineshark_lab/ai_engine
-Existing timer: mineshark-ai.timer, every 1 minute
-Existing AI output: /var/log/ai_alerts.json
-Existing Zeek conn path: /opt/zeek/spool/zeek/conn.log
+现有定时服务: mineshark-ai.timer，每 1 分钟运行一次
+现有 AI 输出: /var/log/ai_alerts.json
+现有 Zeek conn 路径: /opt/zeek/spool/zeek/conn.log
 ```
 
 当前 Agent 不替换、不停用、不修改 `mineshark-ai.timer`。它只读取已有输出并生成研判报告。
@@ -103,7 +105,7 @@ python scripts/agent/run_agent_audit.py \
 ```bash
 python scripts/agent/run_agent_audit.py \
   --env-file .env \
-  --ip 192.168.30.152 \
+  --ip 192.0.2.10 \
   --threshold 0.5 \
   --max-events 5
 ```

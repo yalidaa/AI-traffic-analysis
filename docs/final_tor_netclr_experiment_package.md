@@ -1,78 +1,78 @@
-# NetCLR Tor Final Experiment Evidence Package
+# NetCLR Tor 最终实验证据包
 
-## Purpose
+## 用途
 
-This document is the tracked index for the current final experiment package.
+本文是当前最终实验包的 Git 索引。
 
-Current task framing:
+当前任务口径：
 
 ```text
-Tor encrypted traffic risk-evidence binary baseline.
+Tor 加密流量风险证据二分类基线。
 ```
 
-This is not Tor malware detection, Tor malicious-user detection, or WFlib closed-world website-fingerprinting. WFlib CW remains a backup engineering capability only. The final competition narrative should use NetCLR as the reportable binary baseline and describe model output as traffic-side risk evidence that requires analyst review.
+本文不是 Tor 恶意检测、Tor 恶意用户检测，也不是 WFlib closed-world website fingerprinting 任务。WFlib CW 当前只作为备用工程能力。对外报告应将 NetCLR 作为可报告的二分类基线，并将模型输出表述为需要分析员复核的流量侧风险证据。
 
-## Package Locations
+## 实验包位置
 
-Tracked evidence index:
+已提交的证据索引：
 
 ```text
 docs/final_tor_netclr_experiment_package.md
 ```
 
-Local ignored package:
+本地忽略的实验包：
 
 ```text
 outputs/final_tor_netclr_package/
 ```
 
-The local package contains a small README, a metrics summary JSON, and PowerShell reproduction commands. It intentionally does not duplicate raw datasets, large PPI CSV files, model checkpoints, or the 8 MB full `metrics.json` with per-sample rows.
+本地实验包包含简要 README、指标摘要 JSON 和 PowerShell 复现命令。它不会重复保存原始数据集、大型 PPI CSV、模型 checkpoint，或包含逐样本记录的 8 MB 完整 `metrics.json`。
 
-## Evidence Inventory
+## 证据清单
 
-| Evidence | Path | Status |
+| 证据 | 路径 | 状态 |
 | --- | --- | --- |
-| Inferior raw archive | `datasets/raw/tor/netclr/archives/NCDrift_inf.npz.zip` | Present locally, MD5 verified |
-| Superior raw archive | `datasets/raw/tor/netclr/archives/NCDrift_sup.npz.zip` | Present locally, MD5 verified |
-| Inferior extracted NPZ | `datasets/raw/tor/netclr/extracted/NCDrift_inf/NCDrift_inf.npz` | Present locally |
-| Superior extracted NPZ | `datasets/raw/tor/netclr/extracted/NCDrift_sup/NCDrift_sup.npz` | Present locally |
-| Smoke PPI inferior CSV | `datasets/experiments/ppi/tor/netclr_smoke/NCDrift_inf.csv` | Present locally |
-| Smoke PPI superior CSV | `datasets/experiments/ppi/tor/netclr_smoke/NCDrift_sup.csv` | Present locally |
-| Binary negative view | `datasets/experiments/ppi/tor/netclr_drift_binary/normal/NCDrift_inf.csv` | Present locally |
-| Binary positive view | `datasets/experiments/ppi/tor/netclr_drift_binary/risk/NCDrift_sup.csv` | Present locally |
-| Quality JSON | `outputs/tor_data_runs/netclr_smoke/quality.json` | Present locally |
-| Quality report | `outputs/tor_data_runs/netclr_smoke/quality.md` | Present locally |
-| Best checkpoint | `checkpoints/tor_netclr_drift_binary_gpu_v1.pt` | Present locally |
-| Full evaluation JSON | `outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/metrics.json` | Present locally |
-| Evaluation report | `outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md` | Present locally |
-| Final local summary | `outputs/final_tor_netclr_package/` | Present locally after package generation |
+| NetCLR inferior 原始压缩包 | `datasets/raw/tor/netclr/archives/NCDrift_inf.npz.zip` | 本地存在，已完成 MD5 校验 |
+| NetCLR superior 原始压缩包 | `datasets/raw/tor/netclr/archives/NCDrift_sup.npz.zip` | 本地存在，已完成 MD5 校验 |
+| Inferior 解压 NPZ | `datasets/raw/tor/netclr/extracted/NCDrift_inf/NCDrift_inf.npz` | 本地存在 |
+| Superior 解压 NPZ | `datasets/raw/tor/netclr/extracted/NCDrift_sup/NCDrift_sup.npz` | 本地存在 |
+| Smoke PPI inferior CSV | `datasets/experiments/ppi/tor/netclr_smoke/NCDrift_inf.csv` | 本地存在 |
+| Smoke PPI superior CSV | `datasets/experiments/ppi/tor/netclr_smoke/NCDrift_sup.csv` | 本地存在 |
+| 二分类负类视图 | `datasets/experiments/ppi/tor/netclr_drift_binary/normal/NCDrift_inf.csv` | 本地存在 |
+| 二分类正类视图 | `datasets/experiments/ppi/tor/netclr_drift_binary/risk/NCDrift_sup.csv` | 本地存在 |
+| 质量 JSON | `outputs/tor_data_runs/netclr_smoke/quality.json` | 本地存在 |
+| 质量报告 | `outputs/tor_data_runs/netclr_smoke/quality.md` | 本地存在 |
+| 最佳 checkpoint | `checkpoints/tor_netclr_drift_binary_gpu_v1.pt` | 本地存在 |
+| 完整评估 JSON | `outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/metrics.json` | 本地存在 |
+| 评估报告 | `outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md` | 本地存在 |
+| 最终本地摘要 | `outputs/final_tor_netclr_package/` | 生成实验包后本地存在 |
 
-## Data Integrity
+## 数据完整性
 
-| File | MD5 |
+| 文件 | MD5 |
 | --- | --- |
 | `NCDrift_inf.npz.zip` | `1088195a92b4c94641bb468b2314b1bd` |
 | `NCDrift_sup.npz.zip` | `0fef8c0bc7e88dc881798d47f61f91b5` |
 
-## Task Semantics
+## 任务语义
 
-| Internal label | Report label | Meaning |
+| 内部标签 | 报告标签 | 含义 |
 | --- | --- | --- |
-| `0` | `netclr_inferior_condition` | NetCLR inferior-condition trace group used as the negative side of this binary baseline. |
-| `1` | `netclr_superior_condition` | NetCLR superior-condition trace group used as the positive risk-evidence side of this binary baseline. |
+| `0` | `netclr_inferior_condition` | NetCLR inferior-condition trace 组，作为本二分类基线的负类侧。 |
+| `1` | `netclr_superior_condition` | NetCLR superior-condition trace 组，作为本二分类基线的正类风险证据侧。 |
 
-These labels are not `normal` and `malware`. They are a condition-pair baseline for traffic-side risk evidence under NetCLR network-condition drift.
+这些标签不是 `normal` 和 `malware`。它们是 NetCLR 网络条件变化下，用于流量侧风险证据分析的 condition-pair 基线。
 
-## Quality Summary
+## 质量摘要
 
-Source quality output:
+数据质量输出：
 
 ```text
 outputs/tor_data_runs/netclr_smoke/quality.json
 outputs/tor_data_runs/netclr_smoke/quality.md
 ```
 
-| Item | Value |
+| 项目 | 数值 |
 | --- | ---: |
 | file_count | 2 |
 | sample_count | 28312 |
@@ -84,27 +84,27 @@ outputs/tor_data_runs/netclr_smoke/quality.md
 | short_sample_count | 0 |
 | empty_direction_sample_count | 0 |
 
-The `class_count = 93` value comes from the original NetCLR class IDs stored in the converted PPI view. The final competition task does not use those IDs as a multiclass target. The reportable binary view groups the two NetCLR condition files into negative and positive risk-evidence sides.
+`class_count = 93` 来自转换后 PPI 视图中保留的 NetCLR 原始类别 ID。最终二分类任务不会把这些 ID 当作多分类目标；可报告的二分类视图只是将两个 NetCLR condition 文件分组为负类和正类风险证据侧。
 
-## Training Environment
+## 训练环境
 
-Recorded GPU training environment:
+记录的 GPU 训练环境：
 
 ```text
 GPU: NVIDIA GeForce RTX 2060, 6 GB
 Driver: 555.99
 nvidia-smi CUDA runtime: 12.5
-Python: D:\Learningformore\Anaconda\envs\traffic_env\python.exe
+Python: `<GPU训练环境>\python.exe`
 Torch: 2.5.1+cu121
 torch.cuda.is_available(): True
 ```
 
-The project `.venv` has CPU-only Torch and should not be used for GPU training.
+项目 `.venv` 中是 CPU 版 Torch，不应用于 GPU 训练。
 
-## Training Command
+## 训练命令
 
 ```powershell
-D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/train/train_model.py `
+<GPU训练环境>\python.exe scripts/train/train_model.py `
   --experiment custom `
   --data-format ppi `
   --benign-dir datasets/experiments/ppi/tor/netclr_drift_binary/normal `
@@ -122,7 +122,7 @@ D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/train/train_mode
   --target-fpr 0.05
 ```
 
-Training summary:
+训练摘要：
 
 ```text
 Using device: cuda
@@ -132,16 +132,16 @@ best_val_f1 = 0.7674
 early stopping at epoch 4
 ```
 
-Best checkpoint:
+最佳 checkpoint：
 
 ```text
 checkpoints/tor_netclr_drift_binary_gpu_v1.pt
 ```
 
-## Evaluation Command
+## 评估命令
 
 ```powershell
-D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/eval/run_tor_binary_eval.py `
+<GPU训练环境>\python.exe scripts/eval/run_tor_binary_eval.py `
   --checkpoint checkpoints/tor_netclr_drift_binary_gpu_v1.pt `
   --normal-dir datasets/experiments/ppi/tor/netclr_drift_binary/normal `
   --risk-dir datasets/experiments/ppi/tor/netclr_drift_binary/risk `
@@ -151,16 +151,16 @@ D:\Learningformore\Anaconda\envs\traffic_env\python.exe scripts/eval/run_tor_bin
   --batch-size 256
 ```
 
-Evaluation outputs:
+评估输出：
 
 ```text
 outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/metrics.json
 outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md
 ```
 
-## Evaluation Results
+## 评估结果
 
-| Metric | Value |
+| 指标 | 数值 |
 | --- | ---: |
 | sample_count | 28312 |
 | threshold | 0.5664353179 |
@@ -175,50 +175,44 @@ outputs/tor_data_runs/netclr_drift_binary_gpu_v1_eval/report.md
 | tn | 6503 |
 | fn | 19592 |
 
-Grouped summary:
+分组摘要：
 
-| Group | Count | Accuracy | F1 | FPR | FNR |
+| 分组 | 数量 | Accuracy | F1 | FPR | FNR |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `NCDrift_inf.csv` | 6882 | 0.9449287998 | 0.0000000000 | 0.0550712002 | 0.0000000000 |
 | `NCDrift_sup.csv` | 21430 | 0.0857676155 | 0.1579852157 | 0.0000000000 | 0.9142323845 |
 
-## Report Interpretation
+## 结果解释
 
-Recommended wording:
-
-```text
-At the low-false-positive operating point, the NetCLR binary baseline has high precision but very low recall. This means it can surface a small set of high-confidence traffic-side risk evidence, but it misses most positive-side samples. It should be reported as a risk-evidence baseline for assisted triage, not as a mature Tor threat detector.
-```
-
-Chinese report wording:
+建议使用以下中文表述：
 
 ```text
 在低误报约束下，NetCLR 二分类基线的 precision 较高，但 recall 很低。这说明模型可以输出一部分高置信流量侧风险证据，但漏检严重。因此当前结果适合用于风险证据优先级排序和辅助研判，不适合包装成成熟的 Tor 恶意检测系统。
 ```
 
-## What To Exclude From The Final Claim
+## 最终结论不得超出的范围
 
-Do not claim:
+不得声称：
 
-- The model detects malicious Tor users.
-- Tor traffic is inherently malicious.
-- WFlib single-tab means binary classification.
-- The current recall is sufficient for production detection.
-- LLM/RAG replaces the detector.
+- 模型可以检测恶意 Tor 用户。
+- Tor 流量天然具有恶意性。
+- WFlib single-tab 等同于二分类任务。
+- 当前 recall 已足以支持生产检测。
+- LLM/RAG 可以替代检测模型。
 
-Safe claim:
+可以安全表述为：
 
-- MineShark can process real Tor-related traffic datasets into PPI format.
-- The NetCLR condition-pair binary baseline produces traffic-side risk evidence.
-- The current operating point favors precision over recall.
-- The Agent/RAG layer helps explain and review model evidence with logs and playbooks.
+- MineShark 可以将真实 Tor 相关流量数据集转换为 PPI 格式。
+- NetCLR condition-pair 二分类基线可以生成流量侧风险证据。
+- 当前运行点更偏向 precision，而不是 recall。
+- Agent/RAG 层可以结合日志和安全手册辅助解释、复核模型证据。
 
-## Report Generator
+## 报告生成器
 
-`scripts/docs/build_competition_report.py` reads the local summary by default:
+`scripts/docs/build_competition_report.py` 默认读取本地摘要：
 
 ```text
 outputs/final_tor_netclr_package/metrics_summary.json
 ```
 
-If the local summary is missing, the script uses an embedded NetCLR fallback summary with the same headline metrics so the anonymous DOCX can still be generated from a clean checkout.
+如果本地摘要不存在，脚本会使用内置的 NetCLR 备用摘要和相同的主要指标，使匿名 DOCX 能够在干净检出环境中生成。

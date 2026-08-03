@@ -1,6 +1,8 @@
 # MineShark 项目对话交接记录
 
 > 结构迁移说明：本文是历史交接记录，保留了早期 `agent_reporter/`、`logs_benign/`、`logs_malware/`、`data/` 等旧路径描述。当前代码结构已迁移到 `src/mineshark/`、`scripts/`、`datasets/`、`configs/`、`docs/`、`outputs/`。新命令请优先参考根目录 `README.md` 和 `docs/reporting.md`。
+>
+> 隐私说明：本文中的本机目录、用户名和实验地址已经泛化；它只用于追溯历史过程，不作为当前 `training` 或 `main` 分支状态的唯一依据。
 
 更新时间：2026-05-08
 
@@ -22,7 +24,7 @@
 
 ## 2. 已确认的真实项目经历
 
-用户此前真实完成过：
+项目已完成的工程内容包括：
 
 - 在虚拟机中安装 Ubuntu 22.04 最小化命令行系统。
 - 从 Wazuh 官网一体化部署 Wazuh。
@@ -33,13 +35,13 @@
 
 此前简历中关于 LLM Agent / RAG / 中文报告的描述偏超前，尚未完整实现。因此本轮开发目标是补齐一个可运行的轻量级安全分析报告生成器，而不是虚构完整 SOC Agent 平台。
 
-## 3. 简历目标
+## 3. 工程展示目标
 
-项目最终服务于：
+项目最终面向以下工程能力展示：
 
-- AI 应用开发岗
-- Agent 开发岗
-- 后端开发岗
+- AI 应用与算法模块开发
+- Agent 与报告生成
+- 后端服务和安全数据接入
 
 但第一标签应当是：
 
@@ -47,7 +49,7 @@
 懂安全场景的 AI 应用开发
 ```
 
-简历推荐表述：
+工程展示推荐表述：
 
 ```text
 基于 DeepSeek API 构建安全分析报告生成器，将 Transformer 模型检测结果、Zeek/MineShark 流量上下文与本地安全知识库检索结果融合，自动生成包含风险等级、证据摘要、可疑原因与排查建议的中文安全审计报告。
@@ -175,10 +177,10 @@ python .\agent_reporter\agent_audit.py `
 
 ## 7. 已验证结果
 
-在新路径：
+在当时的项目目录中：
 
 ```text
-E:\项目真正锻炼\TrafficDetection_LLM
+<项目根目录>
 ```
 
 已成功运行：
@@ -193,8 +195,8 @@ python .\agent_reporter\agent_audit.py --checkpoint checkpoints/main_in_domain.p
 Loaded valid connections: 15557
 Connections above threshold: 15499
 Reported events: 3
-JSON report: E:\项目真正锻炼\TrafficDetection_LLM\agent_reporter\outputs\audit_report.json
-Markdown report: E:\项目真正锻炼\TrafficDetection_LLM\agent_reporter\outputs\audit_report.md
+JSON report: <项目根目录>\agent_reporter\outputs\audit_report.json
+Markdown report: <项目根目录>\agent_reporter\outputs\audit_report.md
 ```
 
 说明：
@@ -205,26 +207,26 @@ Markdown report: E:\项目真正锻炼\TrafficDetection_LLM\agent_reporter\outpu
 
 ## 8. 文件迁移状态
 
-项目已从桌面迁移到：
+项目当时已迁移到：
 
 ```text
-E:\项目真正锻炼\TrafficDetection_LLM
+<项目根目录>
 ```
 
-桌面原路径：
+旧本机路径：
 
 ```text
-C:\Users\29065\Desktop\TrafficDetection_LLM
+<旧桌面项目目录>
 ```
 
-已只剩空目录，但由于当前 Codex 工作区进程占用，Windows 暂时无法删除。关闭当前工作区/窗口后可手动删除该空目录。
+旧目录状态不再作为当前仓库部署依据，也不需要在仓库中记录本机清理过程。
 
 ## 9. 后续建议
 
 下一步高性价比任务：
 
 1. 使用 DeepSeek API 跑一次真实 LLM 报告，检查输出质量。
-2. 把报告中的风险等级、证据字段进一步优化成更适合简历展示的样例。
+2. 把报告中的风险等级、证据字段进一步优化成更适合工程展示的样例。
 3. 增加 `--include-benign-sample` 或 benign 对照报告，展示系统能区分高低风险。
 4. 后续再考虑 FastAPI 服务化和 Wazuh JSON 写回。
 
