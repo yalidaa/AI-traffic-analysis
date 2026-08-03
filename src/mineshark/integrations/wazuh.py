@@ -141,6 +141,58 @@ class WazuhIndexerClient:
         hits = payload.get("hits", {}).get("hits", [])
         return [hit.get("_source", hit) for hit in hits]
 
+    def search_mineshark_events(
+        self,
+        *,
+        event_type: str,
+        sensor_ids: tuple[str, ...],
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        filters: List[Dict[str, Any]] = [
+            {
+                "bool": {
+                    "should": [
+                        {"term": {"data.event_type.keyword": event_type}},
+                        {"term": {"data.event_type": event_type}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            },
+            {
+                "bool": {
+                    "should": [
+                        {"terms": {"data.sensor_id.keyword": list(sensor_ids)}},
+                        {"terms": {"data.sensor_id": list(sensor_ids)}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            },
+        ]
+        if start_time or end_time:
+            range_body: Dict[str, str] = {}
+            if start_time:
+                range_body["gte"] = start_time
+            if end_time:
+                range_body["lte"] = end_time
+            filters.append({"range": {"@timestamp": range_body}})
+        body = {
+            "size": max(1, min(int(limit), 1000)),
+            "sort": [{"@timestamp": {"order": "desc", "unmapped_type": "date"}}],
+            "query": {"bool": {"filter": filters}},
+        }
+        response = self.session.post(
+            _url_join(self.config.wazuh_indexer_url, f"/{self.config.wazuh_index_pattern}/_search"),
+            auth=(self.config.wazuh_indexer_username, self.config.wazuh_indexer_password),
+            json=body,
+            verify=self.config.wazuh_verify_ssl,
+            timeout=self.config.wazuh_timeout,
+        )
+        response.raise_for_status()
+        hits = response.json().get("hits", {}).get("hits", [])
+        return [hit.get("_source", hit) for hit in hits]
+
 
 def iter_local_alerts(alerts_path: Path) -> Iterable[Dict[str, Any]]:
     if not alerts_path.exists():

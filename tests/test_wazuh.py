@@ -86,6 +86,28 @@ class WazuhClientTests(unittest.TestCase):
             self.assertIn("wazuh-alerts-*", captured["url"])
             self.assertEqual(captured["json"]["size"], 1)
 
+    def test_indexer_searches_mineshark_events_by_type_and_sensor_allowlist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = make_config(Path(tmp))
+            client = WazuhIndexerClient(config)
+            captured = {}
+
+            def fake_post(url, **kwargs):
+                captured["json"] = kwargs["json"]
+                return Response({"hits": {"hits": []}})
+
+            client.session.post = fake_post
+            client.search_mineshark_events(
+                event_type="ai_alert",
+                sensor_ids=("sensor-01", "sensor-02"),
+                limit=10,
+            )
+
+            text = json.dumps(captured["json"], sort_keys=True)
+            self.assertIn("data.event_type.keyword", text)
+            self.assertIn("data.sensor_id.keyword", text)
+            self.assertIn("sensor-01", text)
+
     def test_read_local_alerts_filters_ip(self):
         with tempfile.TemporaryDirectory() as tmp:
             alerts = Path(tmp) / "alerts.json"

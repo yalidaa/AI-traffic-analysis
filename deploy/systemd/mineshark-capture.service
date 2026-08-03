@@ -1,0 +1,20 @@
+[Unit]
+Description=MineShark dumpcap ring capture
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mineshark
+Group=mineshark
+ExecStart=/opt/mineshark/venv/bin/mineshark-capture --config /etc/mineshark/sensor.toml
+Restart=always
+RestartSec=2
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/spool/mineshark
+
+[Install]
+WantedBy=multi-user.target

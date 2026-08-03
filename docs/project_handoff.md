@@ -193,8 +193,8 @@ python .\agent_reporter\agent_audit.py --checkpoint checkpoints/main_in_domain.p
 Loaded valid connections: 15557
 Connections above threshold: 15499
 Reported events: 3
-JSON report: E:\项目真正锻炼\TrafficDetection_LLM\agent_reporter\outputs\audit_report.json
-Markdown report: E:\项目真正锻炼\TrafficDetection_LLM\agent_reporter\outputs\audit_report.md
+JSON 报告：`<项目根目录>\agent_reporter\outputs\audit_report.json`
+Markdown 报告：`<项目根目录>\agent_reporter\outputs\audit_report.md`
 ```
 
 说明：
@@ -214,7 +214,7 @@ E:\项目真正锻炼\TrafficDetection_LLM
 桌面原路径：
 
 ```text
-C:\Users\29065\Desktop\TrafficDetection_LLM
+`<用户桌面>\TrafficDetection_LLM`
 ```
 
 已只剩空目录，但由于当前 Codex 工作区进程占用，Windows 暂时无法删除。关闭当前工作区/窗口后可手动删除该空目录。

@@ -85,6 +85,24 @@ class FakeToolbox:
             {"alerts": [{"alert": {"signature": "Possible C2"}}], "error": None},
         )
 
+    def query_mineshark_evidence_snapshots(self, **kwargs):
+        return self._record(
+            "query_mineshark_evidence_snapshots",
+            kwargs,
+            {
+                "snapshots": [
+                    {
+                        "event_id": "snapshot-1",
+                        "evidence": {
+                            "zeek": {"events": [{"uid": "Csensor"}]},
+                            "suricata": {"alerts": [{"alert": {"signature": "sensor evidence"}}]},
+                        },
+                    }
+                ],
+                "error": None,
+            },
+        )
+
     def retrieve_security_knowledge(self, *args, **kwargs):
         return self._record(
             "retrieve_security_knowledge",
@@ -100,6 +118,8 @@ class AgentEnhancementTests(unittest.TestCase):
         self.assertEqual(bundle["query_keys"]["uid"], "Cdemo1")
         self.assertEqual(bundle["query_keys"]["ip"], "10.0.0.5")
         self.assertEqual(bundle["missing_sources"], [])
+        self.assertEqual(bundle["sensor_evidence_snapshots"]["snapshots"][0]["event_id"], "snapshot-1")
+        self.assertIn("Csensor", [event.get("uid") for event in bundle["zeek_context"]["events"]])
         self.assertEqual([item["tool"] for item in toolbox.trace][0], "query_mineshark_ai_alerts")
 
     def test_report_quality_complete_and_incomplete(self):

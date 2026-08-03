@@ -21,7 +21,7 @@ def _load_dotenv(env_file: Optional[str] = None) -> None:
         return
 
     if path.exists():
-        load_dotenv(path)
+        load_dotenv(path, override=env_file is not None)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -39,6 +39,15 @@ def _env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def _env_csv(name: str, default: str = "") -> tuple[str, ...]:
+    values = []
+    for raw in os.getenv(name, default).split(","):
+        value = raw.strip()
+        if value and value not in values:
+            values.append(value)
+    return tuple(values)
 
 
 def resolve_project_path(path: str | Path) -> Path:
@@ -77,6 +86,15 @@ class RuntimeConfig:
     deepseek_thinking: str = "enabled"
     deepseek_reasoning_effort: str = "high"
     deepseek_max_tokens: int = 8192
+    mineshark_ai_alert_source: str = "local"
+    mineshark_allowed_sensor_ids: tuple[str, ...] = ()
+    sensor_heartbeat_stale_seconds: int = 45
+    cors_allowed_origins: tuple[str, ...] = (
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    )
+    console_database_path: Path = PROJECT_ROOT / "outputs" / "console" / "mineshark_console.sqlite3"
+    frontend_dist: Path = PROJECT_ROOT / "web" / "frontend" / "dist"
 
     @classmethod
     def from_env(cls, env_file: Optional[str] = None) -> "RuntimeConfig":
@@ -88,6 +106,9 @@ class RuntimeConfig:
             "deepseek-v4-pro": "deepseek-v4-pro",
         }
         deepseek_model = model_aliases.get(raw_model.strip(), raw_model.strip())
+        ai_alert_source = os.getenv("MINESHARK_AI_ALERT_SOURCE", "local").strip().lower()
+        if ai_alert_source not in {"local", "wazuh"}:
+            raise ValueError("MINESHARK_AI_ALERT_SOURCE must be 'local' or 'wazuh'")
         return cls(
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
             deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
@@ -125,6 +146,17 @@ class RuntimeConfig:
             deepseek_thinking=os.getenv("DEEPSEEK_THINKING", "enabled").strip().lower(),
             deepseek_reasoning_effort=os.getenv("DEEPSEEK_REASONING_EFFORT", "high").strip().lower(),
             deepseek_max_tokens=_env_int("DEEPSEEK_MAX_TOKENS", 8192),
+            mineshark_ai_alert_source=ai_alert_source,
+            mineshark_allowed_sensor_ids=_env_csv("MINESHARK_ALLOWED_SENSOR_IDS"),
+            sensor_heartbeat_stale_seconds=_env_int("MINESHARK_SENSOR_HEARTBEAT_STALE_SECONDS", 45),
+            cors_allowed_origins=_env_csv(
+                "MINESHARK_CORS_ALLOWED_ORIGINS",
+                "http://127.0.0.1:8000,http://localhost:8000",
+            ),
+            console_database_path=resolve_project_path(
+                os.getenv("MINESHARK_CONSOLE_DATABASE_PATH", "outputs/console/mineshark_console.sqlite3")
+            ),
+            frontend_dist=resolve_project_path(os.getenv("MINESHARK_FRONTEND_DIST", "web/frontend/dist")),
         )
 
     def tls_warning(self) -> str | None:

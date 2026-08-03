@@ -92,6 +92,12 @@ def build_evidence_bundle(
     selected_ip = ip or _first_ip(primary_alert)
     selected_start = start_time or _find_first(primary_alert, TIME_KEYS)
     selected_end = end_time
+    sensor_snapshots = toolbox.query_mineshark_evidence_snapshots(
+        alert_event_id=selected_alert_id,
+        start_time=selected_start,
+        end_time=selected_end,
+        limit=max_events,
+    )
 
     text_query = selected_alert_id or selected_uid
     wazuh_result = toolbox.query_wazuh_alerts(
@@ -114,6 +120,12 @@ def build_evidence_bundle(
         end_time=selected_end,
         limit=50,
     )
+    for snapshot in sensor_snapshots.get("snapshots", []):
+        evidence = snapshot.get("evidence", {}) if isinstance(snapshot, dict) else {}
+        zeek_snapshot = evidence.get("zeek", {}) if isinstance(evidence, dict) else {}
+        suricata_snapshot = evidence.get("suricata", {}) if isinstance(evidence, dict) else {}
+        _extend_unique(zeek_result.setdefault("events", []), zeek_snapshot.get("events", []))
+        _extend_unique(suricata_result.setdefault("alerts", []), suricata_snapshot.get("alerts", []))
 
     rag_query_parts = [
         "MineShark security triage",
@@ -130,6 +142,7 @@ def build_evidence_bundle(
         ("wazuh", wazuh_result),
         ("zeek", zeek_result),
         ("suricata", suricata_result),
+        ("sensor_evidence_snapshots", sensor_snapshots),
         ("rag", rag_result),
     ):
         _append_error(errors, source, result)
@@ -159,7 +172,21 @@ def build_evidence_bundle(
         "wazuh_evidence": wazuh_result,
         "zeek_context": zeek_result,
         "suricata_alerts": suricata_result,
+        "sensor_evidence_snapshots": sensor_snapshots,
         "rag_matches": rag_result,
         "missing_sources": missing_sources,
         "errors": errors,
     }
+
+
+def _extend_unique(target: List[Dict[str, Any]], additions: Any) -> None:
+    if not isinstance(additions, list):
+        return
+    known = {json.dumps(item, ensure_ascii=False, sort_keys=True, default=str) for item in target}
+    for item in additions:
+        if not isinstance(item, dict):
+            continue
+        identity = json.dumps(item, ensure_ascii=False, sort_keys=True, default=str)
+        if identity not in known:
+            target.append(item)
+            known.add(identity)

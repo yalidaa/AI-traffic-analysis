@@ -6,8 +6,8 @@ from typing import Any, Dict, Optional
 from mineshark.agent.evidence import build_evidence_bundle
 from mineshark.agent.toolbox import AgentToolbox
 from mineshark.config import PROJECT_ROOT, RuntimeConfig
-from mineshark.sensors.ai_alerts import query_mineshark_ai_alerts
-from mineshark.web.database import ConsoleDatabase, DEFAULT_DATABASE_PATH
+from mineshark.sensors.ai_provider import query_configured_ai_alerts, query_sensor_heartbeats
+from mineshark.web.database import ConsoleDatabase
 from mineshark.web.tasks import TASK_TYPES, TaskManager
 
 
@@ -28,6 +28,18 @@ FastAPI, HTTPException, Query, CORSMiddleware, StaticFiles, BaseModel, Field = _
 class TaskCreateRequest(BaseModel):
     task_type: str = Field(..., pattern="^(preflight|evidence-only|agent-report)$")
     parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseCreateRequest(BaseModel):
+    alert_key: str = Field(..., min_length=1, max_length=512)
+    alert_snapshot: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseDecisionUpdateRequest(BaseModel):
+    status: str = Field(..., pattern="^(new|in_review|escalated|closed)$")
+    disposition: Optional[str] = Field(default=None, max_length=64)
+    owner: Optional[str] = Field(default=None, max_length=128)
+    decision_reason: Optional[str] = Field(default=None, max_length=4000)
 
 
 def _config_summary(config: RuntimeConfig) -> Dict[str, Any]:
@@ -56,6 +68,10 @@ def _config_summary(config: RuntimeConfig) -> Dict[str, Any]:
             "zeek_log_dir": str(config.zeek_log_dir),
             "suricata_eve": str(config.suricata_eve_path),
             "rag_index_dir": str(config.rag_index_dir),
+        },
+        "ai_alert_provider": {
+            "source": config.mineshark_ai_alert_source,
+            "allowed_sensor_ids": list(config.mineshark_allowed_sensor_ids),
         },
     }
 
@@ -92,9 +108,27 @@ def _risk_level(alert: Dict[str, Any]) -> str:
     return "informational"
 
 
+def _case_alert_key(alert: Dict[str, Any]) -> Optional[str]:
+    for field in ("_mineshark_alert_id", "alert_id", "_mineshark_uid", "uid"):
+        value = alert.get(field)
+        if value not in (None, ""):
+            return str(value)
+    return None
+
+
 def _source_health(config: RuntimeConfig) -> Dict[str, Any]:
+    if config.mineshark_ai_alert_source == "wazuh":
+        ai_alerts = {
+            "provider": "wazuh",
+            "configured": bool(config.wazuh_indexer_url and config.mineshark_allowed_sensor_ids),
+            "indexer_url": config.wazuh_indexer_url,
+            "index_pattern": config.wazuh_index_pattern,
+            "allowed_sensor_ids": list(config.mineshark_allowed_sensor_ids),
+        }
+    else:
+        ai_alerts = {"provider": "local", **_path_status(config.mineshark_ai_alerts_path)}
     return {
-        "ai_alerts": _path_status(config.mineshark_ai_alerts_path),
+        "ai_alerts": ai_alerts,
         "wazuh_alerts": _path_status(config.wazuh_alerts_path),
         "zeek": _path_status(config.zeek_log_dir, expect_dir=True),
         "suricata": _path_status(config.suricata_eve_path),
@@ -109,19 +143,21 @@ def _source_health(config: RuntimeConfig) -> Dict[str, Any]:
 def create_app(
     *,
     env_file: Optional[str] = None,
-    database_path: str | Path = DEFAULT_DATABASE_PATH,
+    database_path: str | Path | None = None,
     database: Optional[ConsoleDatabase] = None,
     task_manager: Optional[TaskManager] = None,
 ) -> Any:
     app = FastAPI(title="MineShark Console", version="0.1.0")
+    startup_config = RuntimeConfig.from_env(env_file)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=list(startup_config.cors_allowed_origins),
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    db = database or ConsoleDatabase(database_path)
+    selected_database_path = database_path if database_path is not None else startup_config.console_database_path
+    db = database or ConsoleDatabase(selected_database_path)
     manager = task_manager or TaskManager(db)
 
     def config() -> RuntimeConfig:
@@ -135,13 +171,14 @@ def create_app(
             "project_root": str(PROJECT_ROOT),
             "config": _config_summary(runtime),
             "sources": _source_health(runtime),
+            "sensors": query_sensor_heartbeats(runtime),
             "database": db.stats(),
         }
 
     @app.get("/api/overview")
     def overview() -> Dict[str, Any]:
         runtime = config()
-        alerts_result = query_mineshark_ai_alerts(runtime.mineshark_ai_alerts_path, min_probability=0.5, limit=50)
+        alerts_result = query_configured_ai_alerts(runtime, min_probability=0.5, limit=50)
         alerts = alerts_result.get("alerts", [])
         risk_counts = {"high": 0, "medium": 0, "low": 0, "informational": 0, "unknown": 0}
         for alert in alerts:
@@ -176,8 +213,8 @@ def create_app(
         limit: int = Query(50, ge=1, le=100),
     ) -> Dict[str, Any]:
         runtime = config()
-        return query_mineshark_ai_alerts(
-            runtime.mineshark_ai_alerts_path,
+        return query_configured_ai_alerts(
+            runtime,
             ip=ip,
             uid=uid,
             alert_id=alert_id,
@@ -222,6 +259,71 @@ def create_app(
     def list_tasks(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
         return {"tasks": db.list_tasks(limit=limit)}
 
+    @app.get("/api/cases")
+    def list_cases(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
+        return {"cases": db.list_cases(limit=limit)}
+
+    @app.post("/api/cases", status_code=201)
+    def create_case(request: CaseCreateRequest) -> Dict[str, Any]:
+        try:
+            case = db.create_case(alert_key=request.alert_key, alert_snapshot=request.alert_snapshot)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"case": case}
+
+    @app.post("/api/cases/sync")
+    def sync_cases(
+        threshold: float = Query(0.5, ge=0.0, le=1.0),
+        limit: int = Query(100, ge=1, le=500),
+    ) -> Dict[str, Any]:
+        runtime = config()
+        alerts_result = query_configured_ai_alerts(
+            runtime,
+            min_probability=threshold,
+            limit=limit,
+        )
+        created = 0
+        skipped_existing = 0
+        skipped_unidentified = 0
+        for alert in alerts_result.get("alerts", []):
+            alert_key = _case_alert_key(alert)
+            if not alert_key:
+                skipped_unidentified += 1
+                continue
+            _, was_created = db.create_case_if_absent(alert_key=alert_key, alert_snapshot=alert)
+            if was_created:
+                created += 1
+            else:
+                skipped_existing += 1
+        return {
+            "source_file": alerts_result.get("source_file"),
+            "matched_alerts": alerts_result.get("matched", 0),
+            "created": created,
+            "skipped_existing": skipped_existing,
+            "skipped_unidentified": skipped_unidentified,
+            "source_error": alerts_result.get("error"),
+        }
+
+    @app.get("/api/cases/{case_id}")
+    def get_case(case_id: str) -> Dict[str, Any]:
+        case = db.get_case(case_id)
+        if not case:
+            raise HTTPException(status_code=404, detail="Case not found")
+        return {"case": case}
+
+    @app.patch("/api/cases/{case_id}")
+    def update_case(case_id: str, request: CaseDecisionUpdateRequest) -> Dict[str, Any]:
+        if not db.get_case(case_id):
+            raise HTTPException(status_code=404, detail="Case not found")
+        case = db.update_case_decision(
+            case_id,
+            status=request.status,
+            disposition=request.disposition,
+            owner=request.owner,
+            decision_reason=request.decision_reason,
+        )
+        return {"case": case}
+
     @app.post("/api/tasks", status_code=202)
     def create_task(request: TaskCreateRequest) -> Dict[str, Any]:
         if request.task_type not in TASK_TYPES:
@@ -250,7 +352,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Report not found")
         return {"report": report}
 
-    frontend_dist = PROJECT_ROOT / "web" / "frontend" / "dist"
+    frontend_dist = startup_config.frontend_dist
     if frontend_dist.exists():
         app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 

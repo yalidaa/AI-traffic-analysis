@@ -20,6 +20,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+sensor = [
+    "dpkt==1.9.8",
+    "tomli==2.0.1; python_version < '3.11'",
+]
 ml = [
     "scikit-learn>=1.3.0",
     "torch>=2.0.0",
@@ -38,6 +42,8 @@ mineshark-train = "mineshark.training.train:cli"
 mineshark-audit = "mineshark.reporting.agent_audit:main"
 mineshark-agent-audit = "mineshark.agent.cli:main"
 mineshark-console = "mineshark.web.console:main"
+mineshark-sensor = "mineshark.sensor.cli:main"
+mineshark-capture = "mineshark.sensor.capture:capture_main"
 mineshark-build-rag = "mineshark.rag.build_index:main"
 mineshark-prepare-ppi = "mineshark.data.prepare_ppi_from_logs:main"
 mineshark-prepare-malware-ppi = "mineshark.data.prepare_malware_ppi_from_logs:main"

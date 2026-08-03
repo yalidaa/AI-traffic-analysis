@@ -1,0 +1,21 @@
+[Unit]
+Description=MineShark central console API
+After=network-online.target
+
+[Service]
+Type=simple
+User=mineshark
+Group=mineshark
+EnvironmentFile=/etc/mineshark/console.env
+ExecStart=/opt/mineshark/venv/bin/mineshark-console --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/mineshark /opt/mineshark/app
+ReadWritePaths=/var/lib/mineshark /var/log/mineshark
+
+[Install]
+WantedBy=multi-user.target

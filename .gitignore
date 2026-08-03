@@ -67,6 +67,10 @@ agent_reporter/outputs/
 web/frontend/node_modules/
 web/frontend/dist/
 
+# Local build and browser verification artifacts
+build/
+.playwright-mcp/
+
 # OS noise
 Thumbs.db
 desktop.ini

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "model_id": "deep-mineshark-legacy-20260304",
+  "checkpoint_filename": "deep_mineshark_legacy_20260304.pt",
+  "checkpoint_sha256": "9c40a0145309fcc124583ed1d6c7c82b469e7e39948d9f6da57a2ed5e03cd9c1",
+  "threshold": 0.5,
+  "architecture": {
+    "embed_dim": 128,
+    "num_heads": 4,
+    "num_layers": 2,
+    "ff_dim": 256,
+    "dropout": 0.1,
+    "num_classes": 2
+  },
+  "feature_profile": {
+    "name": "legacy-zeek-v1",
+    "max_len": 128,
+    "capture_packets": 20,
+    "min_packets": 3,
+    "max_pkt_size": 2000,
+    "max_iat": 10.0,
+    "time_semantics": "since_flow_start",
+    "packet_length_semantics": "tcp_payload_plus_54",
+    "direction_semantics": "tcp_initiator"
+  },
+  "provenance": {
+    "recovered_from": "Wazuh:/opt/mineshark_lab/ai_engine/deep_mineshark_best.pt",
+    "recovered_at": "2026-07-29",
+    "training_producer": "mineshark.zeek",
+    "notes": "Only the first 20 observed TCP packets are populated; the tensor is padded to 128."
+  }
+}

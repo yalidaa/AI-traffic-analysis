@@ -7,7 +7,7 @@ from mineshark.config import RuntimeConfig, resolve_project_path
 from mineshark.integrations.wazuh import WazuhServerClient, query_alerts_with_fallback
 from mineshark.rag.embeddings import QwenEmbeddingClient
 from mineshark.rag.store import FaissKnowledgeStore
-from mineshark.sensors.ai_alerts import query_mineshark_ai_alerts as read_mineshark_ai_alerts
+from mineshark.sensors.ai_provider import query_configured_ai_alerts, query_sensor_evidence_snapshots
 from mineshark.sensors.logs import query_suricata_alerts, query_zeek_context
 
 
@@ -133,11 +133,11 @@ class AgentToolbox:
         min_probability: Optional[float] = None,
         limit: int = 20,
     ) -> Dict[str, Any]:
-        """Read real-time MineShark AI alerts from /var/log/ai_alerts.json."""
+        """Read MineShark AI alerts from the configured local or Wazuh provider."""
         safe_limit = _safe_limit(limit, 20, 100)
         selected_min_probability = self.threshold if min_probability is None else float(min_probability)
-        result = read_mineshark_ai_alerts(
-            self.config.mineshark_ai_alerts_path,
+        result = query_configured_ai_alerts(
+            self.config,
             ip=ip,
             uid=uid,
             alert_id=alert_id,
@@ -181,6 +181,32 @@ class AgentToolbox:
         return self._record(
             "query_wazuh_alerts",
             {"ip": ip, "text": text, "start_time": start_time, "end_time": end_time, "limit": safe_limit},
+            result,
+        )
+
+    def query_mineshark_evidence_snapshots(
+        self,
+        alert_event_id: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        safe_limit = _safe_limit(limit, 20, 100)
+        result = query_sensor_evidence_snapshots(
+            self.config,
+            alert_event_id=alert_event_id,
+            start_time=start_time,
+            end_time=end_time,
+            limit=safe_limit,
+        )
+        return self._record(
+            "query_mineshark_evidence_snapshots",
+            {
+                "alert_event_id": alert_event_id,
+                "start_time": start_time,
+                "end_time": end_time,
+                "limit": safe_limit,
+            },
             result,
         )
 
@@ -285,7 +311,7 @@ def build_langchain_tools(toolbox: AgentToolbox, include_model_tool: bool = Fals
             func=toolbox.query_mineshark_ai_alerts,
             name="query_mineshark_ai_alerts",
             description=(
-                "Read real-time MineShark AI alerts from /var/log/ai_alerts.json. "
+                "Read MineShark AI alerts from the configured local or Wazuh provider. "
                 "Use this as the primary model evidence source."
             ),
         ),

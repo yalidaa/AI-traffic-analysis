@@ -1,0 +1,29 @@
+sensor_id = "singlehost-wlan"
+interface = "windows-wlan"
+bpf = "tcp"
+poll_seconds = 1.0
+
+[capture]
+dumpcap_path = "/usr/bin/dumpcap"
+spool_dir = "/mnt/e/MineShark-runtime/spool"
+snaplen = 128
+rotate_seconds = 5
+ring_files = 60
+
+[flow]
+idle_timeout_seconds = 30
+active_timeout_seconds = 120
+
+[model]
+checkpoint_path = "/opt/mineshark/models/deep_mineshark_legacy_20260304.pt"
+manifest_path = "/opt/mineshark/models/model-manifest.json"
+threshold = 0.5
+
+[output]
+events_path = "/var/log/mineshark/events.jsonl"
+status_path = "/var/lib/mineshark/status.json"
+state_path = "/var/lib/mineshark/sensor.sqlite3"
+
+[evidence]
+zeek_log_dir = "/var/empty/mineshark/zeek"
+suricata_eve_path = "/var/empty/mineshark/suricata/eve.json"

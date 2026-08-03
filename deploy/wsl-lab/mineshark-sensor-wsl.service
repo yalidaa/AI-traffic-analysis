@@ -1,0 +1,21 @@
+[Unit]
+Description=MineShark WSL sensor consuming Windows capture files
+After=network-online.target
+
+[Service]
+Type=simple
+User=mineshark
+Group=mineshark
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/mineshark/venv/bin/mineshark-sensor --config /etc/mineshark/sensor.toml run
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/mineshark /opt/mineshark/models /mnt/e/MineShark-runtime/spool
+ReadWritePaths=/var/lib/mineshark /var/log/mineshark
+
+[Install]
+WantedBy=multi-user.target
