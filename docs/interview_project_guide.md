@@ -1,6 +1,6 @@
 # 历史资料：MineShark 项目面试讲解稿
 
-> 本文基于早期 `demo_jianli` 演示链路，仅用于复盘和讲解，不作为 `productization` 当前部署、数据源或验证结果的依据。当前状态请以 `docs/project_record.md` 和部署手册为准。
+> 本文基于早期 `demo_jianli` 演示链路，仅用于复盘和讲解，不作为 `main` 当前部署、数据源或验证结果的依据。当前状态请以 `docs/project_record.md` 和部署手册为准。
 
 这份文档的目标不是“写得像论文”，而是帮助你在面试里把历史项目过程讲清楚。建议使用时明确说明其中的旧环境路径和旧规则属于演示验证。
 
@@ -18,7 +18,7 @@ MineShark 是一个面向加密流量的安全研判项目：它先用 Transform
 
 第一层是实时检测层。Linux/WSL Wazuh 环境里有一个已有的 `mineshark-ai.timer`，它会定时调用 `/opt/mineshark_lab/ai_engine/predict_scan.py`。这个脚本读取 MineShark live log，把包长序列、方向序列、包间隔转换成模型输入，再用 `deep_mineshark_best.pt` 这个 Transformer 模型做二分类推理。如果恶意概率超过阈值，比如 0.5，就把 JSONL 格式的 AI 告警写入 `/var/log/ai_alerts.json`。Wazuh 已经配置了读取这个文件，所以 AI 告警会进入 Wazuh 的告警体系。我们已经验证过一条测试告警被 Wazuh 规则 `100500` 捕获，level 是 12。
 
-第二层是新增的研判层，也就是 `demo_jianli` 分支的主要工作。它不替换原来的实时检测服务，而是旁路读取已有结果。核心入口是 `scripts/agent/run_agent_audit.py`，内部会调用 `src/mineshark/agent/cli.py` 创建 LangGraph ReAct Agent。Agent 通过 `src/mineshark/agent/toolbox.py` 暴露多个工具，包括读取 MineShark AI 告警、查询 Wazuh Indexer、查询 Wazuh agents、读取 Zeek、读取 Suricata、检索 RAG 知识库。RAG 部分用 DashScope 的 `text-embedding-v4` 生成向量，用 FAISS 保存本地索引，知识来源是 `configs/reporting/security_playbook.jsonl`。
+第二层是新增的研判层，也就是 `demo_jianli` 分支的主要工作。它不替换原来的实时检测服务，而是旁路读取已有结果。核心入口是 `scripts/agent/run_agent_audit.py`，内部会调用 `src/mineshark/agent/cli.py` 创建 LangGraph ReAct Agent。Agent 通过 `src/mineshark/agent/toolbox.py` 暴露多个工具，包括读取 MineShark AI 告警、查询 Wazuh Indexer、查询 Wazuh agents、读取 Zeek、读取 Suricata、检索 RAG 知识库。RAG 部分在配置 key 时用 DashScope 的 `text-embedding-v4` 生成向量，没有 key 时使用 `local-hash` 离线 embedding，再用 FAISS 保存本地索引，知识来源是 `configs/reporting/security_playbook.jsonl`。
 
 最终输出有两份：`outputs/reports/agent_audit_report.json` 保存完整结构化数据和工具调用轨迹，`outputs/reports/agent_audit_report.md` 是给安全运营人员看的中文研判报告。报告会区分事实证据和模型风险线索，不把模型概率直接说成攻击事实。
 

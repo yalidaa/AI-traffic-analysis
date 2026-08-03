@@ -13,6 +13,8 @@
 - Console：中央 Ubuntu 主机，Nginx HTTPS 反向代理到 `127.0.0.1:8000`。
 - Zeek/Suricata：与 Sensor 同机或其日志可只读挂载，作为告警后一次性旁证，不作为 Transformer 输入。
 
+参考部署版本固定为 Wazuh `4.14.7`、Zeek `8.0.9`、Suricata `6.0.4`。版本变化必须在离线包清单和部署验收记录中显式登记，不能只沿用目录名或镜像标签。
+
 ## 离线包构建
 
 在与目标一致的 Ubuntu 22.04 x86_64/Python 3.10 可联网构建机先运行前端生产构建，再生成离线目录。构建器会拒绝在 Windows 上生成 Linux 离线包：
@@ -45,6 +47,31 @@ python scripts/deployment/build_offline_bundle.py --output outputs/mineshark-off
 中央 `console.env` 必须设置 `MINESHARK_AI_ALERT_SOURCE=wazuh`、允许的传感器 ID、Wazuh Indexer 只读账号、`WAZUH_VERIFY_SSL=true`、`MINESHARK_FRONTEND_DIST=/opt/mineshark/web/frontend/dist` 和 `MINESHARK_CONSOLE_DATABASE_PATH=/var/lib/mineshark/console.sqlite3`。
 
 在中央节点执行 `sudo bash install-console.sh`。它会安装 wheel、前端和受管模板，但不会启用服务，也不会覆盖已有的未托管 `console.env` 或 Nginx 配置。
+
+## Console 与 RAG 验收
+
+中央 Console/Agent 的 RAG 配置应指向：
+
+```text
+知识库：/var/lib/mineshark/security_playbook.jsonl
+FAISS：/var/lib/mineshark/outputs/rag/knowledge.faiss
+元数据：/var/lib/mineshark/outputs/rag/metadata.json
+```
+
+在目标机安装 Python 包和知识库后执行：
+
+```bash
+runuser -u mineshark -- /opt/mineshark/venv/bin/mineshark-build-rag \
+  --env-file /etc/mineshark/console.env
+```
+
+`DASHSCOPE_API_KEY` 是可选配置：有 key 时使用 DashScope `text-embedding-v4`，无 key
+时使用 `local-hash` 离线 embedding。验收必须读取 `GET /api/health` 的
+`sources.rag_index`，确认 `provider`、`count`、两个索引文件状态和 `ok`；再调用
+`GET /api/evidence?top_k=4` 确认接口返回 200。网页不承担索引构建职责。
+
+Wazuh Indexer、Zeek、Suricata 和 RAG 分别验收。Indexer 连接拒绝时只能记录为 Wazuh
+未就绪，不能因为 RAG 检索成功而把整条证据链标记为正常；Zeek/Suricata 日志为空时也要保留真实的空状态。
 
 ## Nginx 与证书
 

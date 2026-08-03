@@ -1,6 +1,6 @@
 # MineShark 产品化项目记录与新会话交接
 
-更新时间：2026-07-31
+更新时间：2026-08-03
 
 > 本文前半部分是当前唯一有效的交接说明。下方“历史归档”保留旧的产品化过程，不能作为当前部署状态、主题、数据源或验证结果的依据。
 
@@ -25,6 +25,8 @@ Windows WLAN
 
 `dumpcap` 只负责抓包；Sensor 才负责五元组流聚合、前 20 包特征、Transformer 评分、`ai_alert`、`evidence_snapshot` 和心跳事件。模型不读取 Zeek/Wazuh 日志；Zeek 8.0.9 与 Suricata 6.0.4 作为旁证源安装并由 Sensor 只读查询。
 
+MineShark-Lab 参考版本为 Wazuh `4.14.7`、Zeek `8.0.9` 和 Suricata `6.0.4`。RAG 索引部署在 `/var/lib/mineshark/outputs/rag/`，当前已生成 `knowledge.faiss` 和 `metadata.json`，provider 为 `local-hash`，知识条数为 10、维度为 384。无 `DASHSCOPE_API_KEY` 时使用该离线 provider；配置 key 才切换到 DashScope `text-embedding-v4`。
+
 ### 2. 环境和边界
 
 - 工作区：`<项目根目录>`，分支 `main`。
@@ -43,9 +45,9 @@ Windows WLAN
 - Python 3.10 / Ubuntu 22.04 兼容已修复：Sensor 在没有内置 `tomllib` 时回退使用 `tomli`。
 - Windows dumpcap 已验证持续产生真实 WLAN PCAPNG；Sensor 已真实处理过大量流和产生大量 `ai_alert` / `evidence_snapshot`。
 - Sensor 对 dumpcap 环形轮转的文件消失竞态已修复：发现或读取到被覆盖的 PCAP 时跳过，不再导致 systemd 重启风暴。
-- Console、Nginx、Wazuh、Indexer、Filebeat、Dashboard、Sensor 的服务安装和启动链路已验证；WSL 常驻任务使用 `/bin/sleep infinity`，不能再使用 `/bin/true` 或 `bash -lc` 版本。
+- Console、Nginx、Wazuh、Indexer、Filebeat、Dashboard、Sensor 的服务安装和启动链路已经完成过部署验收；当前运行状态以本节的现场复核为准。WSL 常驻任务使用 `/bin/sleep infinity`，不能再使用 `/bin/true` 或 `bash -lc` 版本。
 - Nginx 配置目录权限和本机回环访问已修复；本机访问控制台已验证 HTTP `200`。
-- 本轮自动化验收：`.venv\Scripts\python.exe -m pytest -q` 退出码 0；`.venv\Scripts\ruff.exe check src tests` 通过；前端在 `web\frontend` 执行 `npm run build` 成功。Vite 仍提示主 bundle 约 637 kB（gzip 约 196 kB），这是独立的性能优化事项，不阻塞当前闭环。
+- 本轮自动化验收：`.venv\Scripts\python.exe -m pytest` 为 `106 passed, 1 warning`；`.venv\Scripts\ruff.exe check src tests` 和 `ruff format --check src tests` 通过；前端在 `web\frontend` 执行 `npm run build` 成功，主 bundle 为 637.15 kB（gzip 196.55 kB）。Vite 的单包超过 500 kB 提示是独立的性能优化事项，不阻塞当前闭环。
 - Wazuh 规则修复已落地：`ai_alert` 使用实际 JSON 解码路径，并同时兼容默认 Suricata JSON 父规则 `86600`；`wazuh-analysisd -t` 通过，真实高风险模型信号经 `wazuh-logtest` 命中规则 `110103`、level `12`。
 
 关键部署文件：
@@ -58,25 +60,21 @@ Windows WLAN
 - `deploy/wazuh/mineshark_rules.xml`
 - `docs/wsl_lab_deployment.md`
 
-### 4. 当前状态与已解决卡点
+### 4. 2026-08-03 现场状态
 
-**Wazuh -> Indexer -> Console 的真实告警链路已打通。** 本轮新鲜验证结果：
+本次复核不能继续写成“Wazuh 全部在线”。`systemctl is-active` 返回：Wazuh Indexer 和 Manager 仍处于 `activating`，Filebeat、Dashboard、Nginx、Sensor、Console 和 MineShark Zeek 服务为 `active`；Indexer 的 `9200` 连接仍可能被拒绝。Indexer 反复启动期间，Wazuh 告警链路视为未就绪，必须修复或重新启动后再做 Console 告警验收。
 
-- Wazuh Manager、Indexer、Sensor、Nginx 当前均为 `active`。
-- Wazuh Indexer 查询到真实 `ai_alert` 文档；Console `/api/overview` 返回 `matched=50`，来源为 `wazuh://wazuh-alerts-*`，风险统计为 50 条高风险模型信号。
-- Console `/api/alerts?limit=2` 返回真实 `event_type=ai_alert`，样例规则为 `110103`、level `12`，不是演示数据。
-- `/api/cases/sync?threshold=0.5&limit=1` 连续调用两次，结果分别为 `created=1, skipped_existing=0` 和 `created=0, skipped_existing=1`；同一 `alert_key` 没有重复建案。
-- 浏览器实际打开 `https://localhost:8012/`：页面显示 50 条高危告警，告警详情能展开原始快照并展示 `110103`；页面请求均为 HTTP 200，浏览器控制台无 error/warning。
+RAG 已经不是“可能无索引”的状态：`/var/lib/mineshark/outputs/rag/` 下存在 `knowledge.faiss` 和 `metadata.json`，元数据为 provider `local-hash`、10 条知识、384 维。上一轮 API 验收中 `/api/health` 的 `sources.rag_index.ok=true`，`/api/evidence?top_k=4` 返回 HTTP 200 且有 4 条 RAG 命中；后续现场仍应重新执行这两项检查。
 
-旧卡点的根因是 Wazuh 规则字段路径和父规则分流不匹配：规则现在使用实际 JSON 解码路径 `data.schema_version`、`data.event_type`、`data.risk_level`，并同时挂在默认 Suricata JSON 父规则 `86600` 下。规则已经部署到 `MineShark-Lab:/var/ossec/etc/rules/mineshark_rules.xml`，`wazuh-analysisd -t` 通过。
+Suricata 当前有日志；Zeek 当前没有有效旁证事件。旁证空或服务异常时，Console 只能显示空状态/错误原因，不能把“已安装”写成“已有证据”，也不能把模型概率写成攻击事实。
 
-运行边界仍需诚实展示：本机 Wazuh 告警文件读取因权限返回 `Permission denied`，Zeek/Suricata 只有在采集或 PCAP 回放后才会产生旁证日志，RAG 仍可能无索引；Console 必须按实际数据源状态显示，不能把模型信号写成已确认攻击，也不能伪造旁证。
+Wazuh 规则字段路径的修复仍已落地：使用 `data.schema_version`、`data.event_type`、`data.risk_level`，并兼容默认 Suricata JSON 父规则 `86600`；`wazuh-analysisd -t` 和历史 `wazuh-logtest` 验收记录保留在下方历史资料中，不能替代本次 Indexer 在线检查。
 
 **计划任务的可靠性仍是未完成项。** `MineShark-Lab-Start` 之前的记录为 `Last Result: 1`；本轮手动 `Start-ScheduledTask` 后任务进入 `Running`，约 13 秒后仍保持运行，说明当前任务命令可以启动 WSL 常驻实例，但尚未完成重新登录或重启后的持久化验收。
 
 ### 5. 下一步的精确执行顺序
 
-1. 在 Windows 重新登录或重启后验证 `MineShark-Lab-Start` 是否自动保持 `Running`，并确认 Wazuh、Indexer、Sensor、Nginx 都重新为 `active`；若再次出现 `Last Result: 1`，再单独修复任务计划配置。
+1. 在 Windows 重新登录或重启后验证 `MineShark-Lab-Start` 是否自动保持 `Running`，并确认 Wazuh、Indexer、Sensor、Nginx 都重新为 `active`；当前 Indexer/Manager 仍处于 `activating`，应先定位启动日志和 9200 拒绝原因。
 2. 将 Wazuh 本地告警文件读取改为受控、只读的权限方案，或继续以 Indexer 作为部署模式唯一告警源；不要为了让状态变绿而放宽证书、密码或目录权限。
 3. 为 Zeek/Suricata 增加稳定的实时采集或 PCAP 回放调度，并给案件固化版本化 evidence bundle；当前证据覆盖仍以现场日志为准。
 4. 对旧模型的大量普通流量高风险输出做单独的校准/误报研究，不能把本轮链路验收当成模型效果验收。
@@ -180,7 +178,7 @@ MineShark 自己的核心识别元素是“研判链路总线”：模型信号 
 - 证据拓扑：React Flow 拓扑、查询窗口、基于 `evidence_bundle` 的证据台账、事件数、缺失原因和错误状态。
 - 报告中心：报告队列 + 可追溯阅读器；当前没有报告时诚实展示空状态。
 - 任务历史：任务时间线 + 系统状态；当前没有任务时诚实展示空状态。
-- 统一深色、克制、工业化的令牌、焦点环、4px 状态标签和表格行高；不使用紫色渐变、装饰性光球或攻击地图。
+- 当前 `main` 默认使用白色、克制、工业化的令牌、焦点环、4px 状态标签和表格行高；历史深色方案和截图只保留作设计追溯，不是当前默认主题。不使用紫色渐变、装饰性光球或攻击地图。
 
 关键实现文件：
 
@@ -302,13 +300,13 @@ rtk node <Codex会话输出目录>\e-mineshark-product-productization-e-trafficd
 7. 证据页面截图或自动化时，点击“生成证据拓扑”后必须等待 `/api/evidence` 响应完成；否则会截到“尚未请求”的中间状态。
 8. 重复同步是正常路径：相同 alert key 第二次应该显示跳过，而不是创建新案件。
 9. 不要为了填充报告/任务空状态直接触发 Agent 报告；它可能依赖外部 LLM、增加运行时间或产生不可控成本。
-10. 不要做紫色渐变、装饰光球、营销式英雄页、巨大圆角卡片或蓝黑风格残留；界面应保持深色、克制、工业化、证据优先。
+10. 不要做紫色渐变、装饰光球、营销式英雄页、巨大圆角卡片或蓝黑风格残留；当前默认界面保持白色、克制、工业化、证据优先，历史深色方案不作为默认入口。
 11. 不要把前端拆包警告和本轮视觉/闭环工作混在一起；主包性能优化必须单开任务并重新验收。
 12. PowerShell 中 `python` 可能指向 Windows Store shim。测试与 Ruff 优先使用 `.venv\Scripts\python.exe` 和 `.venv\Scripts\ruff.exe`。
 
 ## 10. 当前未提交状态
 
-历史记录显示，截至当时写入时，`productization` 分支有未提交内容。已修改或新增的关键文件包括：
+历史记录显示，截至当时写入时，旧 `productization` 分支有未提交内容。该记录只用于追溯，产品化代码现已进入 `main`；已修改或新增的关键文件包括：
 
 - `src/mineshark/config.py`
 - `src/mineshark/web/api.py`

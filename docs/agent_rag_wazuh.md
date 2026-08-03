@@ -39,7 +39,7 @@ DEEPSEEK_MODEL=deepseek-v4-pro
 DEEPSEEK_THINKING=enabled
 DEEPSEEK_REASONING_EFFORT=high
 DEEPSEEK_MAX_TOKENS=8192
-DASHSCOPE_API_KEY=...
+DASHSCOPE_API_KEY=...  # 可选；无 key 时使用 local-hash
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
 WAZUH_VERIFY_SSL=false
@@ -86,6 +86,14 @@ configs/reporting/security_playbook.jsonl
 
 ```text
 outputs/rag/
+```
+
+MineShark-Lab 部署模式使用以下绝对路径：
+
+```text
+/var/lib/mineshark/security_playbook.jsonl
+/var/lib/mineshark/outputs/rag/knowledge.faiss
+/var/lib/mineshark/outputs/rag/metadata.json
 ```
 
 Embedding provider 的选择由配置决定：配置 `DASHSCOPE_API_KEY` 时使用 DashScope 的
@@ -158,5 +166,5 @@ JSON 报告会额外保留 `preflight`、`evidence_bundle`、`quality_checks`、
 - 不写回 Wazuh，不做自动封禁、自动删除或自动处置。
 - 不修改现有传感器、Wazuh 和 Nginx 服务。
 - Agent 默认读取已配置的数据源，不默认重新运行模型。
-- Wazuh Indexer API 查询失败时，会回退读取本地 `alerts.json`，并在 JSON 报告中记录降级原因。
+- Wazuh Indexer API 查询失败时，会回退读取本地 `alerts.json`，并在 JSON 报告中记录降级原因；如果 Indexer 和本地文件都不可读，结果为 `source=unavailable`、空告警和错误原因，不会因此让 `/api/evidence` 返回 500。
 - 模型概率只能作为风险线索，不能单独作为攻击事实。

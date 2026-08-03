@@ -16,6 +16,18 @@ Windows WLAN + Npcap
 
 这套环境验证的是“单机真实 WLAN 抓包到控制台”的闭环，不等同于交换机 SPAN/TAP 或企业 100 Mbps 压测。Windows 负责访问物理 WLAN 网卡，Sensor 不直接访问 Windows 网卡。
 
+## 固定版本
+
+MineShark-Lab 安装器当前固定以下组件版本：
+
+| 组件 | 版本 |
+| --- | --- |
+| Wazuh Manager / Indexer / Dashboard | `4.14.7` |
+| Zeek | `8.0.9` |
+| Suricata | `6.0.4` |
+
+版本以 `deploy/wsl-lab/install-guest.sh` 的校验和安装变量为准；目标机升级任一组件后，应重新执行部署验收并记录实际版本。
+
 ## 安装与修复
 
 宿主机安装器：
@@ -42,6 +54,45 @@ wsl -d MineShark-Lab -- bash /mnt/e/MineShark-product/deploy/wsl-lab/repair-gues
 - 启停真实 WLAN 抓包：任务 `MineShark-WLANCapture`。停止抓包不会停止 Sensor、Wazuh 或控制台。
 - 抓包目录：`E:\MineShark-runtime\spool`；snaplen 为 128 字节、5 秒轮转、最多 60 个文件。
 - 旁证日志：Zeek `8.0.9` 写入 `/var/lib/mineshark/zeek-logs/current/`；Suricata `6.0.4` 写入 `/var/log/suricata/eve.json`。
+
+## RAG 索引
+
+客体安装器和修复脚本会在写入 `/etc/mineshark/console.env` 后自动执行：
+
+```bash
+runuser -u mineshark -- /opt/mineshark/venv/bin/mineshark-build-rag \
+  --env-file /etc/mineshark/console.env
+```
+
+默认知识库和索引路径为：
+
+```text
+/var/lib/mineshark/security_playbook.jsonl
+/var/lib/mineshark/outputs/rag/knowledge.faiss
+/var/lib/mineshark/outputs/rag/metadata.json
+```
+
+配置 `DASHSCOPE_API_KEY` 时索引使用 DashScope `text-embedding-v4`；无密钥时使用
+`local-hash` 离线 embedding，不应因为未配置 DashScope 就把 RAG 判定为未部署。部署后检查：
+
+```bash
+curl --fail --silent http://127.0.0.1:8000/api/health
+curl --fail --silent 'http://127.0.0.1:8000/api/evidence?top_k=4'
+```
+
+健康响应中的 `sources.rag_index` 必须同时核对 `provider`、`count`、
+`knowledge_faiss`、`metadata_json` 和 `ok`；第二个接口应返回 HTTP 200，且在有查询上下文时
+检查 `evidence_bundle.rag_matches`。网页不会触发 RAG 重建。
+
+## 服务状态边界
+
+“安装成功”不等于“所有服务当前在线”。每次启动、修复或重启后都要现场检查：
+
+```bash
+systemctl is-active wazuh-indexer wazuh-manager filebeat wazuh-dashboard nginx mineshark-sensor mineshark-console mineshark-zeek
+```
+
+如果 Wazuh Indexer 反复处于 `activating` 或 `127.0.0.1:9200` 连接被拒绝，Console 的 Wazuh 数据源应保持未就绪并记录错误；不能用 RAG 已正常或软件包已安装替代 Indexer 验收。
 
 ## 证据边界
 

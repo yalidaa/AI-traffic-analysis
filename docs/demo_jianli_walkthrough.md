@@ -1,6 +1,6 @@
 # 历史资料：demo_jianli 分支项目讲解与复现手册
 
-> 本文只用于追溯早期演示环境，不是 `productization` 当前部署手册。文中的旧分支、旧定时服务、旧路径和旧规则编号可能与当前真实 Sensor/Wazuh/Console 链路不同。当前部署请先阅读 `docs/project_record.md`、`docs/wsl_lab_deployment.md` 和 `docs/real_sensor_deployment.md`。
+> 本文只用于追溯早期演示环境，不是 `main` 当前部署手册。文中的旧分支、旧定时服务、旧路径和旧规则编号可能与当前真实 Sensor/Wazuh/Console 链路不同。当前部署请先阅读 `docs/project_record.md`、`docs/wsl_lab_deployment.md` 和 `docs/real_sensor_deployment.md`。
 
 这份文档记录 `demo_jianli` 分支的历史演示方式：它怎么一键运行、每一步检查什么、数据从哪里来、Agent 调用了哪些工具，以及当时如何讲解项目。
 
@@ -107,7 +107,7 @@ scripts/agent/run_cli_agent_demo.sh
 | 第 6 步 | `/var/log/ai_alerts.json` | 确认实时 AI 告警文件存在且可读。 |
 | 第 7 步 | Wazuh `alerts.json` 中是否有 MineShark 告警 | 验证 AI 告警是否已进入 Wazuh 告警体系。 |
 | 第 8 步 | `outputs/rag/knowledge.faiss` 和 `metadata.json` | 查看是否已有 RAG 索引产物。 |
-| 第 9 步 | 构建或跳过 RAG 索引 | 默认调用 DashScope embedding 重新生成 FAISS 索引。 |
+| 第 9 步 | 构建或跳过 RAG 索引 | 当前代码按配置选择 DashScope embedding；没有 key 时使用 `local-hash` 离线 embedding。 |
 | 第 10 步 | 正式运行 CLI Agent | 调用 DeepSeek + LangGraph 工具链生成报告。 |
 | 第 11 步 | 预览 Markdown 报告 | 让你快速确认报告内容是否像一次安全研判。 |
 | 第 12 步 | 打印 `tool_trace` 摘要 | 查看 Agent 调用了哪些工具，避免 LLM 过程变成黑盒。 |

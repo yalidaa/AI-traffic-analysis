@@ -28,10 +28,10 @@
 https://github.com/yalidaa/AI-traffic-analysis.git
 ```
 
-2026-08-03 最后一次远程核验结果：
+2026-08-03 当前远程核验结果：
 
 ```text
-main     1d8a020ee12f37b4dd602ba927e94fc923f9c29f
+main     f45d72e0344291e3f68f89309a4af2cb41c72c73
 training b4305f029dfef680a2a8e758907298c604af5069
 ```
 
@@ -41,7 +41,7 @@ training b4305f029dfef680a2a8e758907298c604af5069
 - 旧远程 `productization` 已删除。
 - 产品化代码已经进入 `main`，不应再恢复或继续使用远程 `productization`。
 - 当前本机工作区已切回 `main`，创建本文前工作树干净并与 `origin/main` 一致。
-- 本文 `handoff.md` 是本会话最后新增的文件；新会话接手后应先用 `git status --short --branch` 确认它是否仍未提交，再决定是否连同后续文档修正一起提交。
+- 本文 `handoff.md` 已纳入 `main` 的交接资料；新会话接手后仍应先用 `git status --short --branch` 确认工作树，再核对远程状态。
 
 本机还存在 `codex/training-remote-cleanup` 等本地引用，另有 `training` 和 `codex/icc27-open-drift` 被其他 worktree 使用。它们不是新的远程业务分支。不要删除、强制移动或切换这些被占用的本地分支。
 
@@ -102,17 +102,17 @@ b4305f0 chore(training): 整理 AI 算法优化分支
 
 ## 四、完成时的验证证据
 
-对提交 `b4305f0` 的本轮新鲜验证结果：
+对当前 `main` 文档同步的本轮新鲜验证结果：
 
 ```text
-Python 测试：54 passed
+Python 测试：106 passed，1 warning
 Ruff 静态检查：All checks passed
-Ruff 格式检查：56 files already formatted
+Ruff 格式检查：65 files already formatted
 前端正式构建：成功
 Git diff --check：通过
 ```
 
-前端构建成功时的主包约为 `819.57 kB`，gzip 后约 `249.23 kB`。Vite 仍提示单包超过 `500 kB`，这是性能优化事项，不是本轮阻塞。
+前端构建成功时的主包约为 `637.15 kB`，gzip 后约 `196.55 kB`。Vite 仍提示单包超过 `500 kB`，这是性能优化事项，不是本轮阻塞。
 
 测试还有一个非阻断警告：FastAPI TestClient 使用的 `httpx` 接口将迁移到 `httpx2`。不要为了消除这个警告顺手做大规模依赖升级，应单独评估兼容性。
 
@@ -122,21 +122,20 @@ Git diff --check：通过
 
 当前没有代码实现或远程同步方面的硬阻塞。主要是以下待处理事项和状态风险：
 
-1. `main` 的 `README.md` 和 `docs/project_record.md` 中仍有少量“当前代码基线为 productization”“当前分支为 productization”等历史表述。实际远程已无该分支，下一次文档整理应将这些当前状态改成 `main`，但不要删除其中有效的部署历史和验收记录。
+1. `README.md`、`docs/project_record.md`、WSL/Console/Agent/RAG 文档已同步到 `main` 当前状态；后续只需在服务或版本变化时重新核验，不要把历史归档当作现场状态。
 2. 本地 `training` 分支引用仍可能停在旧提交 `fb6e1d9`，并且被其他 worktree 占用。远程 `origin/training` 的 `b4305f0` 才是当前事实来源。
 3. 前端存在超过 500 kB 的构建提示，尚未拆包。
 4. FastAPI/Starlette 测试链存在 `httpx2` 迁移提示，尚未处理。
-5. `docs/project_record.md` 记录的 WSL 服务状态、计划任务、告警数量和时间点是 2026-07-31 的历史快照。涉及“当前是否在线”的问题必须重新运行现场检查，不能复述旧结论。
+5. 2026-08-03 现场复核显示 Wazuh Indexer 和 Manager 仍处于 `activating`，其余相关服务为 `active`；RAG 索引为 `local-hash`、10 条、384 维。涉及“当前是否在线”的问题必须重新运行现场检查，不能复述旧结论。
 
 ## 六、下一步计划
 
-### 第一优先级：修正 main 的过期分支表述
+### 第一优先级：保持 main 文档与现场状态同步
 
-1. 在 `main` 上读取 `README.md`、`docs/project_record.md` 和 `docs/productization_roadmap.md`。
-2. 只修正把 `productization` 当作当前分支的文字，改成 `main` 系统开发主线。
-3. 保留部署架构、历史验收数据、真实链路和风险边界，不要把历史内容整段删除。
-4. 所有新增说明使用中文。
-5. 验证后将 `handoff.md` 和必要的文档修正一起提交到 `main`。
+1. 入口、部署、Console、Agent/RAG 和历史资料已经改为指向 `main`，并标注历史快照边界。
+2. 保留部署架构、历史验收数据、真实链路和风险边界，不要把历史内容整段删除。
+3. 所有新增说明使用中文；版本、RAG provider 和服务状态以现场/脚本为准。
+4. 后续文档改动完成后，继续执行测试、Ruff、前端构建和 `git diff --check`。
 
 ### 第二优先级：继续 training 的算法优化
 
@@ -175,7 +174,7 @@ rtk git log -1 --oneline origin/training
 预期远程结果是：
 
 ```text
-origin/main     1d8a020
+origin/main     f45d72e
 origin/training b4305f0
 ```
 

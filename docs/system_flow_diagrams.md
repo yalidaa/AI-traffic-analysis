@@ -1,6 +1,6 @@
 # 历史资料：MineShark 系统流程图
 
-> 本文拆解的是 `demo_jianli` 历史演示链路，图中的旧 timer、旧文件路径和规则编号不能代表当前 `productization` 实际部署。当前真实链路请阅读 `docs/project_record.md` 和 `docs/wsl_lab_deployment.md`。
+> 本文拆解的是 `demo_jianli` 历史演示链路，图中的旧 timer、旧文件路径和规则编号不能代表当前 `main` 实际部署。当前真实链路请阅读 `docs/project_record.md` 和 `docs/wsl_lab_deployment.md`。
 
 这份文档用于把历史 `demo_jianli` 分支从黑盒拆开。建议阅读顺序：
 
@@ -39,6 +39,7 @@ flowchart LR
             Env[".env<br/>API Key 与路径配置"]
             RAGBuild["scripts/rag/build_index.py"]
             RAGIndex["FAISS 索引<br/>outputs/rag/"]
+            LocalEmbedding["local-hash 离线 Embedding<br/>384 维"]
             AgentCLI["scripts/agent/run_agent_audit.py"]
             Toolbox["AgentToolbox<br/>src/mineshark/agent/toolbox.py"]
             Reports["研判报告<br/>outputs/reports/*.json + *.md"]
@@ -46,7 +47,7 @@ flowchart LR
     end
 
     subgraph Cloud["外部云服务"]
-        DashScope["DashScope Embedding<br/>text-embedding-v4"]
+        DashScope["可选 DashScope Embedding<br/>text-embedding-v4"]
         DeepSeek["DeepSeek Chat LLM<br/>deepseek-chat"]
     end
 
@@ -60,6 +61,7 @@ flowchart LR
 
     Env --> RAGBuild
     RAGBuild --> DashScope
+    RAGBuild --> LocalEmbedding
     RAGBuild --> RAGIndex
 
     Env --> AgentCLI
@@ -72,6 +74,7 @@ flowchart LR
     Toolbox --> Suricata
     Toolbox --> RAGIndex
     Toolbox --> DashScope
+    Toolbox --> LocalEmbedding
     AgentCLI --> DeepSeek
     DeepSeek --> Reports
 ```
@@ -111,7 +114,7 @@ flowchart TB
         LogReader["src/mineshark/sensors/logs.py<br/>读取 Zeek conn.log 和 Suricata eve.json"]
         WazuhClient["src/mineshark/integrations/wazuh.py<br/>Wazuh Server API 认证、agent 查询、Indexer 告警查询、本地 alerts 回退"]
         RAGStore["src/mineshark/rag/store.py<br/>加载知识 JSONL，构建/读取 FAISS，执行相似度检索"]
-        Embedder["src/mineshark/rag/embeddings.py<br/>调用 DashScope OpenAI-compatible embedding API"]
+        Embedder["src/mineshark/rag/embeddings.py<br/>DashScope 或 local-hash embedding"]
     end
 
     subgraph DataModel["模型与数据层"]
@@ -169,7 +172,7 @@ flowchart TB
 | `src/mineshark/config.py` | 读取 `.env`，把字符串配置转成 `RuntimeConfig` | `.env`、环境变量 | 路径、API URL、密钥、TLS 配置 | Agent CLI、RAG CLI、Wazuh/RAG 工具 |
 | `scripts/rag/build_index.py` | RAG 构建脚本入口 | CLI 参数 | 调用 `mineshark.rag.build_index.main()` | 人工执行 |
 | `src/mineshark/rag/build_index.py` | 加载知识库，调用 embedding，构建 FAISS | `security_playbook.jsonl`、`.env` | `outputs/rag/knowledge.faiss`、`metadata.json` | `scripts/rag/build_index.py` |
-| `src/mineshark/rag/embeddings.py` | 优先调用 DashScope，未配置 key 时使用离线 embedding | 文本列表、可选 `DASHSCOPE_API_KEY` | 向量列表 | RAG 构建与检索 |
+| `src/mineshark/rag/embeddings.py` | 配置 key 时调用 DashScope，未配置时使用 `local-hash` 离线 embedding | 文本列表、可选 `DASHSCOPE_API_KEY` | 向量列表 | RAG 构建与检索 |
 | `src/mineshark/rag/store.py` | 管理知识记录、FAISS 建库和检索 | 知识 JSONL、query 文本 | 相似知识片段 | RAG CLI、Agent 工具箱 |
 | `scripts/agent/run_agent_audit.py` | Agent 脚本入口 | CLI 参数 | 调用 `mineshark.agent.cli.main()` | 人工执行 |
 | `src/mineshark/agent/cli.py` | 创建 LangGraph ReAct Agent，组织输入，写报告 | `.env`、CLI 参数、工具箱 | `agent_audit_report.json`、`.md` | Agent 脚本/命令行 |
@@ -289,7 +292,7 @@ Agent 报告生成后写入：
 
 - Agent 默认读取 `/var/log/ai_alerts.json`，不重新跑模型。
 - 只有加 `--rerun-model` 时，才会启用旧版 Transformer 推理工具。
-- Agent 只读 Wazuh、Zeek、Suricata、RAG，不写回 Wazuh。
+- Agent 只读 Wazuh、Zeek、Suricata、RAG，不写回 Wazuh；RAG 按配置使用 DashScope 或 `local-hash` embedding。
 - 模型概率只能作为风险线索，不能直接当作攻击事实。
 - `WAZUH_VERIFY_SSL=false` 是本地自签名证书开发模式，正式环境要配置 CA 并开启校验。
 

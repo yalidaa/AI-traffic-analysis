@@ -23,6 +23,8 @@ Windows WLAN
 
 Sensor 负责五元组流聚合、前 20 个包的特征提取、Transformer 评分，以及生成 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件。模型不读取 Zeek 或 Wazuh 日志；当前 WSL 安装器固定安装 Zeek 8.0.9 和 Suricata 6.0.4 作为后续旁证。旁证日志为空时页面会如实显示。
 
+MineShark-Lab 的参考版本为 Wazuh `4.14.7`、Zeek `8.0.9` 和 Suricata `6.0.4`。版本固定来自 `deploy/wsl-lab/install-guest.sh`，现场服务状态仍必须通过 systemd 和 Console 健康接口单独核验。
+
 当前已验证的是单机真实 WLAN 抓包到控制台的闭环，不等同于交换机 SPAN/TAP、100 Mbps 持续压测或模型效果验收。旧模型在普通 WLAN 流量上可能产生大量高风险信号，这只能证明采集和推理链路工作，不能证明流量已经确认恶意。
 
 关键输出位置：
@@ -50,7 +52,7 @@ outputs/console/mineshark_console.sqlite3
 ├── src/mineshark/
 │   ├── agent/                # Agent、证据聚合、预检查和质量检查
 │   ├── integrations/         # Wazuh Server / Indexer 接入
-│   ├── rag/                  # FAISS 存储和 DashScope 向量检索
+│   ├── rag/                  # FAISS 存储和可选 DashScope/local-hash 向量检索
 │   ├── sensor/               # 抓包、流聚合、模型推理和事件输出
 │   ├── sensors/              # AI 告警、Zeek、Suricata 数据读取
 │   ├── training/             # Transformer 训练
@@ -103,7 +105,7 @@ cp .env.example .env
 
 ```text
 DEEPSEEK_API_KEY=...
-DASHSCOPE_API_KEY=...
+DASHSCOPE_API_KEY=...       # 可选；未配置时使用 local-hash 离线 embedding
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
 WAZUH_VERIFY_SSL=false
@@ -114,6 +116,16 @@ MINESHARK_AI_ALERTS_PATH=/var/log/ai_alerts.json
 ```
 
 真实部署模式还需要设置 `MINESHARK_AI_ALERT_SOURCE=wazuh`、允许的 `MINESHARK_ALLOWED_SENSOR_IDS`、Wazuh Indexer 只读账号和 `MINESHARK_FRONTEND_DIST`。真实密码、令牌、证书和生产日志只保留在目标环境，不提交到仓库。
+
+RAG 知识库默认使用 `configs/reporting/security_playbook.jsonl`，索引由
+`knowledge.faiss` 和 `metadata.json` 组成。配置 `DASHSCOPE_API_KEY` 时使用
+DashScope `text-embedding-v4`；未配置时使用确定性的 `local-hash`（384 维）离线
+embedding，因此本地部署不依赖 DashScope 密钥。WSL 安装器和修复脚本会自动把知识库放到
+`/var/lib/mineshark/security_playbook.jsonl`，并把索引生成到
+`/var/lib/mineshark/outputs/rag/`。
+
+部署后以 `GET /api/health` 的 `sources.rag_index` 为准检查 `provider`、`count`、
+`knowledge_faiss`、`metadata_json` 和 `ok`；不要只检查目录是否存在。
 
 ## MineShark Console
 
