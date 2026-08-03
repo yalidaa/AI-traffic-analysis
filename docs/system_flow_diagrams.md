@@ -169,7 +169,7 @@ flowchart TB
 | `src/mineshark/config.py` | 读取 `.env`，把字符串配置转成 `RuntimeConfig` | `.env`、环境变量 | 路径、API URL、密钥、TLS 配置 | Agent CLI、RAG CLI、Wazuh/RAG 工具 |
 | `scripts/rag/build_index.py` | RAG 构建脚本入口 | CLI 参数 | 调用 `mineshark.rag.build_index.main()` | 人工执行 |
 | `src/mineshark/rag/build_index.py` | 加载知识库，调用 embedding，构建 FAISS | `security_playbook.jsonl`、`.env` | `outputs/rag/knowledge.faiss`、`metadata.json` | `scripts/rag/build_index.py` |
-| `src/mineshark/rag/embeddings.py` | 调用 DashScope 向量模型 | 文本列表、`DASHSCOPE_API_KEY` | 向量列表 | RAG 构建与检索 |
+| `src/mineshark/rag/embeddings.py` | 优先调用 DashScope，未配置 key 时使用离线 embedding | 文本列表、可选 `DASHSCOPE_API_KEY` | 向量列表 | RAG 构建与检索 |
 | `src/mineshark/rag/store.py` | 管理知识记录、FAISS 建库和检索 | 知识 JSONL、query 文本 | 相似知识片段 | RAG CLI、Agent 工具箱 |
 | `scripts/agent/run_agent_audit.py` | Agent 脚本入口 | CLI 参数 | 调用 `mineshark.agent.cli.main()` | 人工执行 |
 | `src/mineshark/agent/cli.py` | 创建 LangGraph ReAct Agent，组织输入，写报告 | `.env`、CLI 参数、工具箱 | `agent_audit_report.json`、`.md` | Agent 脚本/命令行 |

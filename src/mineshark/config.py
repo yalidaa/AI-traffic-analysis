@@ -93,6 +93,7 @@ class RuntimeConfig:
         "http://127.0.0.1:8000",
         "http://localhost:8000",
     )
+    output_root: Path = PROJECT_ROOT / "outputs"
     console_database_path: Path = PROJECT_ROOT / "outputs" / "console" / "mineshark_console.sqlite3"
     frontend_dist: Path = PROJECT_ROOT / "web" / "frontend" / "dist"
 
@@ -153,6 +154,7 @@ class RuntimeConfig:
                 "MINESHARK_CORS_ALLOWED_ORIGINS",
                 "http://127.0.0.1:8000,http://localhost:8000",
             ),
+            output_root=resolve_project_path(os.getenv("MINESHARK_OUTPUT_ROOT", "outputs")),
             console_database_path=resolve_project_path(
                 os.getenv("MINESHARK_CONSOLE_DATABASE_PATH", "outputs/console/mineshark_console.sqlite3")
             ),

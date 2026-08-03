@@ -11,6 +11,7 @@ ZEEK_EXPECTED_VERSION="${ZEEK_EXPECTED_VERSION:-8.0.9}"
 ZEEK_REPO_BASE="https://download.opensuse.org/repositories/security:/zeek/xUbuntu_22.04"
 ZEEK_APT_SOURCE="/etc/apt/sources.list.d/security-zeek.list"
 ZEEK_KEYRING="/etc/apt/keyrings/security-zeek.gpg"
+ZEEK_LOG_ROOT="/var/lib/mineshark/zeek-logs"
 SURICATA_PACKAGE_VERSION="${SURICATA_PACKAGE_VERSION:-1:6.0.4-3}"
 MANAGED_MARKER="# managed-by: mineshark-wsl-lab"
 
@@ -75,7 +76,29 @@ if [[ "${zeek_version}" != "${ZEEK_EXPECTED_VERSION}" ]]; then
   echo "unexpected Zeek version: ${zeek_version}" >&2
   exit 1
 fi
-install -d -o root -g zeek -m 2770 /opt/zeek/logs/current
+if ! grep -R -Fq "color-scheme:light" "${PROJECT_ROOT}/web/frontend/dist" && \
+  ! grep -R -Eq "color-scheme:[[:space:]]+light" "${PROJECT_ROOT}/web/frontend/dist"; then
+  echo "refusing to deploy a frontend build without the approved light color scheme" >&2
+  exit 1
+fi
+install -d -o root -g zeek -m 2770 "${ZEEK_LOG_ROOT}"
+python3 - "/opt/zeek/etc/zeekctl.cfg" "${ZEEK_LOG_ROOT}" <<'PY'
+from pathlib import Path
+import sys
+
+config_path = Path(sys.argv[1])
+log_root = sys.argv[2]
+lines = config_path.read_text(encoding="utf-8").splitlines()
+replaced = False
+for index, line in enumerate(lines):
+    if line.strip().startswith("LogDir") and "=" in line:
+        lines[index] = f"LogDir = {log_root}"
+        replaced = True
+        break
+if not replaced:
+    lines.append(f"LogDir = {log_root}")
+config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
 suricata_version="$(dpkg-query -W -f='${Version}' suricata)"
 if [[ "${suricata_version}" != "${SURICATA_PACKAGE_VERSION}" ]]; then
   echo "unexpected Suricata package version: ${suricata_version}" >&2
@@ -95,6 +118,7 @@ install -d -o root -g mineshark -m 0750 /etc/mineshark /opt/mineshark/models
 chmod 0755 /etc/mineshark
 install -d -o root -g root -m 0755 /opt/mineshark/web/frontend/dist
 install -d -o mineshark -g mineshark -m 0750 /var/lib/mineshark /var/log/mineshark
+install -d -o mineshark -g mineshark -m 0750 /var/lib/mineshark/outputs /var/lib/mineshark/outputs/rag
 chown -R mineshark:mineshark /var/lib/mineshark /var/log/mineshark
 touch /var/log/mineshark/events.jsonl
 chown mineshark:mineshark /var/log/mineshark/events.jsonl
@@ -108,8 +132,10 @@ python3 -m venv /opt/mineshark/venv
 install -o root -g mineshark -m 0640 "${PROJECT_ROOT}/deploy/wsl-lab/sensor.toml" /etc/mineshark/sensor.toml
 install -o root -g mineshark -m 0640 "${PROJECT_ROOT}/configs/sensor/model-manifest.json" /opt/mineshark/models/model-manifest.json
 install -o root -g mineshark -m 0640 "${model_path}" /opt/mineshark/models/deep_mineshark_legacy_20260304.pt
+install -o root -g mineshark -m 0640 "${PROJECT_ROOT}/configs/reporting/security_playbook.jsonl" /var/lib/mineshark/security_playbook.jsonl
 cp -a "${PROJECT_ROOT}/web/frontend/dist/." /opt/mineshark/web/frontend/dist/
 install -o root -g root -m 0644 "${PROJECT_ROOT}/deploy/wsl-lab/mineshark-sensor-wsl.service" /etc/systemd/system/mineshark-sensor.service
+install -o root -g root -m 0644 "${PROJECT_ROOT}/deploy/wsl-lab/mineshark-zeek.service" /etc/systemd/system/mineshark-zeek.service
 install -o root -g root -m 0644 "${PROJECT_ROOT}/deploy/systemd/mineshark-console.service" /etc/systemd/system/mineshark-console.service
 install -o root -g root -m 0644 "${PROJECT_ROOT}/deploy/wazuh/mineshark_rules.xml" /var/ossec/etc/rules/mineshark_rules.xml
 
@@ -197,8 +223,11 @@ MINESHARK_ALLOWED_SENSOR_IDS=singlehost-wlan
 MINESHARK_CORS_ALLOWED_ORIGINS=https://localhost:8012
 MINESHARK_SENSOR_HEARTBEAT_STALE_SECONDS=45
 MINESHARK_FRONTEND_DIST=/opt/mineshark/web/frontend/dist
+MINESHARK_OUTPUT_ROOT=/var/lib/mineshark/outputs
+MINESHARK_KNOWLEDGE_FILE=/var/lib/mineshark/security_playbook.jsonl
+MINESHARK_RAG_INDEX_DIR=/var/lib/mineshark/outputs/rag
 MINESHARK_CONSOLE_DATABASE_PATH=/var/lib/mineshark/console.sqlite3
-ZEEK_LOG_DIR=/opt/zeek/logs/current
+ZEEK_LOG_DIR=/var/lib/mineshark/zeek-logs/current
 SURICATA_EVE_PATH=/var/log/suricata/eve.json
 WAZUH_INDEXER_URL=https://127.0.0.1:9200
 WAZUH_INDEXER_USERNAME=mineshark-reader
@@ -208,6 +237,7 @@ WAZUH_VERIFY_SSL=false
 EOF
 chown root:mineshark "${console_env}"
 chmod 0640 "${console_env}"
+runuser -u mineshark -- /opt/mineshark/venv/bin/mineshark-build-rag --env-file "${console_env}"
 
 install -d -o root -g root -m 0750 /etc/mineshark/tls
 if [[ ! -f /etc/mineshark/tls/privkey.pem ]]; then
@@ -269,6 +299,7 @@ ln -sfn "${nginx_site}" /etc/nginx/sites-enabled/mineshark
 nginx -t
 systemctl daemon-reload
 systemctl enable --now wazuh-indexer wazuh-manager filebeat wazuh-dashboard nginx mineshark-sensor mineshark-console
+systemctl enable --now mineshark-zeek
 systemctl restart wazuh-manager mineshark-sensor mineshark-console
 wait_for_indexer
 

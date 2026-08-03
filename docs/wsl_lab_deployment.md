@@ -8,7 +8,7 @@ Windows WLAN + Npcap
   -> E:\MineShark-runtime\spool\*.pcapng
   -> Ubuntu 22.04 WSL: MineShark-Lab
        -> MineShark Sensor
-       -> Zeek 8.0.9 /opt/zeek/logs/current
+       -> Zeek 8.0.9 /var/lib/mineshark/zeek-logs/current
        -> Suricata 6.0.4 /var/log/suricata/eve.json
        -> Wazuh Manager / Indexer / Dashboard
        -> MineShark Console
@@ -41,7 +41,7 @@ wsl -d MineShark-Lab -- bash /mnt/e/MineShark-product/deploy/wsl-lab/repair-gues
 - 查看健康：`wsl -d MineShark-Lab -- cat /var/lib/mineshark/status.json`。
 - 启停真实 WLAN 抓包：任务 `MineShark-WLANCapture`。停止抓包不会停止 Sensor、Wazuh 或控制台。
 - 抓包目录：`E:\MineShark-runtime\spool`；snaplen 为 128 字节、5 秒轮转、最多 60 个文件。
-- 旁证日志：Zeek `8.0.9` 写入 `/opt/zeek/logs/current/`；Suricata `6.0.4` 写入 `/var/log/suricata/eve.json`。
+- 旁证日志：Zeek `8.0.9` 写入 `/var/lib/mineshark/zeek-logs/current/`；Suricata `6.0.4` 写入 `/var/log/suricata/eve.json`。
 
 ## 证据边界
 

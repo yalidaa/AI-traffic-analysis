@@ -43,7 +43,7 @@ DASHSCOPE_API_KEY=...
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
 WAZUH_VERIFY_SSL=false
-ZEEK_LOG_DIR=/opt/zeek/logs/current
+ZEEK_LOG_DIR=/var/lib/mineshark/zeek-logs/current
 SURICATA_EVE_PATH=/var/log/suricata/eve.json
 WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
 MINESHARK_AI_ALERT_SOURCE=wazuh
@@ -87,6 +87,12 @@ configs/reporting/security_playbook.jsonl
 ```text
 outputs/rag/
 ```
+
+Embedding provider 的选择由配置决定：配置 `DASHSCOPE_API_KEY` 时使用 DashScope 的
+`text-embedding-v4`；未配置时自动使用确定性的 `local-hash` 离线 embedding，适合
+MineShark-Lab 无外网 API key 的本地部署。WSL 安装和修复脚本会在复制知识库、安装
+Python 包并写入 `console.env` 后自动构建索引；`/api/health` 会返回实际 provider、
+知识条数和索引状态。
 
 ## 手动运行 Agent
 

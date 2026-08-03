@@ -8,12 +8,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from mineshark.agent.cli import (
-    DEFAULT_OUTPUT_JSON,
-    DEFAULT_OUTPUT_MD,
     run_agent_audit,
     write_report,
 )
-from mineshark.config import PROJECT_ROOT
+from mineshark.config import RuntimeConfig
 from mineshark.web.database import ConsoleDatabase
 
 
@@ -54,6 +52,8 @@ def build_agent_args(task_type: str, parameters: Dict[str, Any]) -> argparse.Nam
     if task_type not in TASK_TYPES:
         raise ValueError(f"Unsupported task_type: {task_type}")
     params = _clean_parameters(parameters)
+    runtime = RuntimeConfig.from_env(params.get("env_file"))
+    output_root = runtime.output_root
     return argparse.Namespace(
         env_file=params.get("env_file"),
         checkpoint="checkpoints/main_in_domain.pt",
@@ -74,8 +74,9 @@ def build_agent_args(task_type: str, parameters: Dict[str, Any]) -> argparse.Nam
         strict_report_quality=False,
         rerun_model=False,
         task="生成一次谨慎、带证据链的中文安全研判报告。",
-        output_json=DEFAULT_OUTPUT_JSON,
-        output_md=DEFAULT_OUTPUT_MD,
+        output_root=output_root,
+        output_json=output_root / "reports" / "agent_audit_report.json",
+        output_md=output_root / "reports" / "agent_audit_report.md",
     )
 
 
@@ -136,10 +137,10 @@ class TaskManager:
             args = build_agent_args(task_type, parameters)
             report = self.runner(args)
             markdown = str(report.get("markdown_report") or "").strip() + "\n"
-            snapshot_json, snapshot_md = self._snapshot_paths(task_id, task_type)
+            snapshot_json, snapshot_md = self._snapshot_paths(task_id, task_type, args.output_root)
 
             if task_type == "agent-report":
-                self.writer(report, DEFAULT_OUTPUT_JSON, DEFAULT_OUTPUT_MD)
+                self.writer(report, str(args.output_json), str(args.output_md))
 
             self.writer(report, str(snapshot_json), str(snapshot_md))
             self.database.finish_task(
@@ -158,8 +159,8 @@ class TaskManager:
             )
 
     @staticmethod
-    def _snapshot_paths(task_id: str, task_type: str) -> tuple[Path, Path]:
-        directory = PROJECT_ROOT / "outputs" / "console" / "tasks"
+    def _snapshot_paths(task_id: str, task_type: str, output_root: Path) -> tuple[Path, Path]:
+        directory = Path(output_root) / "console" / "tasks"
         directory.mkdir(parents=True, exist_ok=True)
         stem = f"{task_type}_{task_id}"
         return directory / f"{stem}.json", directory / f"{stem}.md"

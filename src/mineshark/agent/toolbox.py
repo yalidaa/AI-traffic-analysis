@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from mineshark.config import RuntimeConfig, resolve_project_path
 from mineshark.integrations.wazuh import WazuhServerClient, query_alerts_with_fallback
-from mineshark.rag.embeddings import QwenEmbeddingClient
+from mineshark.rag.embeddings import LocalEmbeddingClient, QwenEmbeddingClient
 from mineshark.rag.store import FaissKnowledgeStore
 from mineshark.sensors.ai_provider import query_configured_ai_alerts, query_sensor_evidence_snapshots
 from mineshark.sensors.logs import query_suricata_alerts, query_zeek_context
@@ -283,11 +283,14 @@ class AgentToolbox:
         selected_top_k = _safe_limit(top_k or self.top_k, self.top_k, 20)
         try:
             if self._rag_store is None:
-                embedding_client = QwenEmbeddingClient(
-                    api_key=self.config.dashscope_api_key,
-                    base_url=self.config.dashscope_base_url,
-                    model=self.config.dashscope_embedding_model,
-                )
+                if self.config.dashscope_api_key:
+                    embedding_client = QwenEmbeddingClient(
+                        api_key=self.config.dashscope_api_key,
+                        base_url=self.config.dashscope_base_url,
+                        model=self.config.dashscope_embedding_model,
+                    )
+                else:
+                    embedding_client = LocalEmbeddingClient()
                 self._rag_store = FaissKnowledgeStore(self.config.rag_index_dir, embedding_client)
             matches = self._rag_store.search(query, top_k=selected_top_k)
             result = {"matches": matches, "error": None}

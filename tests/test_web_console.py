@@ -21,6 +21,8 @@ FASTAPI_AVAILABLE = importlib.util.find_spec("fastapi") is not None
 if FASTAPI_AVAILABLE:
     from fastapi.testclient import TestClient
 
+    from mineshark.rag.embeddings import LocalEmbeddingClient
+    from mineshark.rag.store import build_faiss_index, load_knowledge_jsonl
     from mineshark.web.api import create_app
 from mineshark.web.database import ConsoleDatabase
 from mineshark.web.tasks import TaskManager, build_agent_args
@@ -122,6 +124,13 @@ class FrontendCommandCenterContractTests(unittest.TestCase):
         for view in ("alerts", "evidence", "cases"):
             with self.subTest(view=view):
                 self.assertIn(f'setActiveView("{view}")', overview_source)
+
+    def test_alert_queue_labels_the_actual_provider(self):
+        app_source = (ROOT / "web" / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
+        alerts_source = app_source.split("function AlertsPage", 1)[1].split("function EvidencePage", 1)[0]
+
+        self.assertIn("alertsMeta.provider", alerts_source)
+        self.assertIn("Wazuh Indexer", alerts_source)
 
     def test_overview_uses_a_status_strip_without_a_single_sample_risk_chart(self):
         app_source = (ROOT / "web" / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
@@ -351,9 +360,52 @@ class WebConsoleStorageTests(unittest.TestCase):
         self.assertEqual(args.threshold, 0.7)
         self.assertEqual(args.max_events, 3)
 
+    def test_build_agent_args_uses_configured_output_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_root = root / "runtime-output"
+            env_file = root / ".env"
+            env_file.write_text(f"MINESHARK_OUTPUT_ROOT={output_root}\n", encoding="utf-8")
+
+            args = build_agent_args("agent-report", {"env_file": str(env_file)})
+
+            self.assertEqual(Path(args.output_root), output_root.resolve())
+            self.assertEqual(
+                Path(args.output_json),
+                (output_root / "reports" / "agent_audit_report.json").resolve(),
+            )
+            self.assertEqual(
+                Path(args.output_md),
+                (output_root / "reports" / "agent_audit_report.md").resolve(),
+            )
+
 
 @unittest.skipUnless(FASTAPI_AVAILABLE, "fastapi is not installed")
 class WebConsoleApiTests(unittest.TestCase):
+    @mock.patch("mineshark.web.api.query_configured_ai_alerts")
+    def test_wazuh_mode_health_uses_indexer_probe_for_source_status(self, query_alerts):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = write_env(root)
+            with env_file.open("a", encoding="utf-8") as handle:
+                handle.write("\nMINESHARK_AI_ALERT_SOURCE=wazuh\n")
+                handle.write("MINESHARK_ALLOWED_SENSOR_IDS=sensor-01\n")
+            (root / "ai_alerts.json").unlink()
+            query_alerts.return_value = {
+                "source_file": "wazuh://wazuh-alerts-*",
+                "exists": True,
+                "matched": 1,
+                "alerts": [{"alert_id": "demo-alert-001"}],
+                "error": None,
+            }
+
+            health = TestClient(create_app(env_file=str(env_file))).get("/api/health").json()
+
+            self.assertTrue(health["sources"]["ai_alerts"]["ok"])
+            self.assertEqual(health["sources"]["ai_alerts"]["provider"], "wazuh")
+            self.assertTrue(health["sources"]["wazuh_alerts"]["ok"])
+            self.assertEqual(health["sources"]["wazuh_alerts"]["provider"], "wazuh_indexer")
+
     def test_wazuh_mode_health_does_not_require_a_local_ai_alert_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -466,6 +518,38 @@ class WebConsoleApiTests(unittest.TestCase):
                 },
             )
             self.assertNotIn("access-control-allow-origin", cors.headers)
+
+    def test_health_reports_rag_provider_and_count_without_knowledge_source_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = write_env(root)
+            knowledge_file = root / "knowledge.jsonl"
+            knowledge_file.write_text(
+                json.dumps(
+                    {
+                        "title": "Wazuh triage",
+                        "tags": ["wazuh"],
+                        "content": "correlate Wazuh with Zeek evidence",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            records = load_knowledge_jsonl(knowledge_file)
+            build_faiss_index(records, LocalEmbeddingClient(), root / "rag")
+            env_text = env_file.read_text(encoding="utf-8")
+            env_text = env_text.replace(
+                f"MINESHARK_RAG_INDEX_DIR={root / 'rag'}",
+                f"MINESHARK_KNOWLEDGE_FILE={knowledge_file}\nMINESHARK_RAG_INDEX_DIR={root / 'rag'}",
+            )
+            env_file.write_text(env_text, encoding="utf-8")
+
+            app = create_app(env_file=str(env_file), database_path=root / "console.sqlite3")
+            health = TestClient(app).get("/api/health").json()
+
+            self.assertNotIn("knowledge_file", health["sources"])
+            self.assertEqual(health["sources"]["rag_index"]["provider"], "local-hash")
+            self.assertEqual(health["sources"]["rag_index"]["count"], 1)
 
     def test_preflight_task_can_be_created_and_polled(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -180,6 +181,21 @@ class AgentEnhancementTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("wazuh_alerts_path", result["errors"])
             self.assertIn("permission denied", result["checks"]["wazuh_alerts_path"]["error"])
+
+    def test_wazuh_preflight_does_not_require_local_alert_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = replace(
+                make_config(root),
+                mineshark_ai_alert_source="wazuh",
+                mineshark_allowed_sensor_ids=("sensor-01",),
+            )
+
+            result = run_preflight(config, env_file=str(root / ".env"))
+
+            self.assertNotIn("ai_alerts_path", result["errors"])
+            self.assertNotIn("wazuh_alerts_path", result["errors"])
+            self.assertTrue(result["checks"]["wazuh_indexer_config"]["ok"])
 
     def test_demo_fixture_contains_correlated_event(self):
         fixture = ROOT / "tests" / "fixtures" / "demo_event"

@@ -11,6 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from mineshark.rag.embeddings import LocalEmbeddingClient
 from mineshark.rag.store import FaissKnowledgeStore, build_faiss_index, load_knowledge_jsonl
 
 
@@ -23,6 +24,32 @@ class FakeEmbeddingClient:
 
 
 class RagTests(unittest.TestCase):
+    @unittest.skipIf(importlib.util.find_spec("faiss") is None, "faiss-cpu is not installed")
+    def test_local_embedding_client_builds_a_searchable_index_without_api_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            knowledge = root / "kb.jsonl"
+            knowledge.write_text(
+                json.dumps(
+                    {
+                        "title": "Wazuh alert",
+                        "tags": ["wazuh"],
+                        "content": "correlate the alert with Zeek and Suricata evidence",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            records = load_knowledge_jsonl(knowledge)
+            result = build_faiss_index(records, LocalEmbeddingClient(), root / "rag")
+            store = FaissKnowledgeStore(root / "rag", LocalEmbeddingClient())
+
+            matches = store.search("Wazuh alert", top_k=1)
+
+            self.assertEqual(result["embedding_provider"], "local-hash")
+            self.assertEqual(matches[0]["title"], "Wazuh alert")
+
     @unittest.skipIf(importlib.util.find_spec("faiss") is None, "faiss-cpu is not installed")
     def test_build_and_search_faiss_index(self):
         with tempfile.TemporaryDirectory() as tmp:

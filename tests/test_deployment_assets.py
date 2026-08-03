@@ -82,6 +82,44 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertNotIn("rm -rf", installer)
         self.assertNotIn("find ", installer)
 
+    def test_console_deployment_uses_writable_runtime_outputs(self):
+        service = (DEPLOY / "systemd" / "mineshark-console.service").read_text(encoding="utf-8")
+        env_example = (DEPLOY / "console.env.example").read_text(encoding="utf-8")
+        installer = (DEPLOY / "install-console.sh").read_text(encoding="utf-8")
+
+        self.assertIn("ReadWritePaths=/var/lib/mineshark /var/log/mineshark", service)
+        for value in (
+            "MINESHARK_OUTPUT_ROOT=/var/lib/mineshark/outputs",
+            "MINESHARK_KNOWLEDGE_FILE=/var/lib/mineshark/security_playbook.jsonl",
+            "MINESHARK_RAG_INDEX_DIR=/var/lib/mineshark/outputs/rag",
+        ):
+            self.assertIn(value, env_example)
+        self.assertIn("configs/reporting/security_playbook.jsonl", installer)
+        self.assertIn("/var/lib/mineshark/security_playbook.jsonl", installer)
+
+    def test_wsl_deployment_builds_rag_after_installing_knowledge(self):
+        for script_path in (DEPLOY / "wsl-lab" / "install-guest.sh", DEPLOY / "wsl-lab" / "repair-guest.sh"):
+            script = script_path.read_text(encoding="utf-8")
+            self.assertIn(
+                'runuser -u mineshark -- /opt/mineshark/venv/bin/mineshark-build-rag --env-file "${console_env}"',
+                script,
+            )
+            self.assertLess(
+                script.index("security_playbook.jsonl"),
+                script.index("mineshark-build-rag"),
+            )
+
+    def test_frontend_deployment_rejects_dark_build_and_starts_zeek(self):
+        guest_installer = (DEPLOY / "wsl-lab" / "install-guest.sh").read_text(encoding="utf-8")
+        zeek_service = (DEPLOY / "wsl-lab" / "mineshark-zeek.service").read_text(encoding="utf-8")
+        styles = (ROOT / "web" / "frontend" / "src" / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn("color-scheme: light", styles)
+        self.assertIn("color-scheme:light", guest_installer)
+        self.assertIn("mineshark-zeek.service", guest_installer)
+        self.assertIn("/opt/zeek/bin/zeekctl deploy", zeek_service)
+        self.assertIn("/opt/zeek/bin/zeekctl stop", zeek_service)
+
     def test_chinese_deployment_and_acceptance_runbooks_exist(self):
         deployment = (ROOT / "docs" / "real_sensor_deployment.md").read_text(encoding="utf-8")
         acceptance = (ROOT / "docs" / "real_sensor_acceptance.md").read_text(encoding="utf-8")
@@ -157,16 +195,19 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("download.opensuse.org/repositories/security:/zeek/xUbuntu_22.04", guest_installer)
         self.assertIn('"zeek-${ZEEK_SERIES}"', guest_installer)
         self.assertIn("${zeek_binary} --version", guest_installer)
-        self.assertIn("/opt/zeek/logs/current", guest_installer)
+        self.assertIn("/var/lib/mineshark/zeek-logs", guest_installer)
+        self.assertNotIn("install -d -o root -g zeek -m 2770 /opt/zeek/logs/current", guest_installer)
         self.assertIn('SURICATA_PACKAGE_VERSION="${SURICATA_PACKAGE_VERSION:-1:6.0.4-3}"', guest_installer)
         self.assertIn("suricata=${SURICATA_PACKAGE_VERSION}", guest_installer)
         self.assertIn("suricata --build-info", guest_installer)
         self.assertIn("suricata-update", guest_installer)
         self.assertIn("-o /etc/suricata/rules", guest_installer)
         self.assertIn("suricata -T -c /etc/suricata/suricata.yaml", guest_installer)
-        self.assertIn("ZEEK_LOG_DIR=/opt/zeek/logs/current", guest_installer)
+        self.assertIn("ZEEK_LOG_DIR=/var/lib/mineshark/zeek-logs/current", guest_installer)
+        self.assertIn('ZEEK_LOG_ROOT="/var/lib/mineshark/zeek-logs"', guest_installer)
+        self.assertIn('lines[index] = f"LogDir = {log_root}"', guest_installer)
         self.assertIn("SURICATA_EVE_PATH=/var/log/suricata/eve.json", guest_installer)
-        self.assertIn('zeek_log_dir = "/opt/zeek/logs/current"', sensor_config)
+        self.assertIn('zeek_log_dir = "/var/lib/mineshark/zeek-logs/current"', sensor_config)
         self.assertIn('suricata_eve_path = "/var/log/suricata/eve.json"', sensor_config)
         self.assertIn("Zeek 8.0.9", runbook)
         self.assertIn("Suricata 6.0.4", runbook)

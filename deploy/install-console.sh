@@ -20,10 +20,12 @@ done
 id mineshark >/dev/null 2>&1 || useradd --system --home /var/lib/mineshark --shell /usr/sbin/nologin mineshark
 install -d -o root -g mineshark -m 0750 /etc/mineshark
 install -d -o mineshark -g mineshark -m 0750 /var/lib/mineshark /var/log/mineshark
+install -d -o mineshark -g mineshark -m 0750 /var/lib/mineshark/outputs /var/lib/mineshark/outputs/rag
 install -d -o root -g root -m 0755 /opt/mineshark/web/frontend
 python3 -m venv /opt/mineshark/venv
 /opt/mineshark/venv/bin/pip install --no-index --find-links "${BUNDLE_DIR}/wheels" "${BUNDLE_DIR}/wheels/mineshark_traffic_analysis-0.1.0-py3-none-any.whl"
 cp -a "${BUNDLE_DIR}/web/frontend/dist" /opt/mineshark/web/frontend/
+install -o root -g mineshark -m 0640 "${BUNDLE_DIR}/configs/reporting/security_playbook.jsonl" /var/lib/mineshark/security_playbook.jsonl
 { echo "${MANAGED_MARKER}"; cat "${BUNDLE_DIR}/console.env.example"; } > "${ENV_PATH}"
 chown root:mineshark "${ENV_PATH}"
 chmod 0640 "${ENV_PATH}"

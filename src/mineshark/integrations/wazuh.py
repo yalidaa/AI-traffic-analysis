@@ -244,7 +244,14 @@ def query_alerts_with_fallback(
         )
         return {"source": "wazuh_indexer_api", "alerts": alerts, "error": None}
     except Exception as exc:
-        local_alerts = read_local_alerts(config.wazuh_alerts_path, ip=ip, text=text, limit=limit)
+        try:
+            local_alerts = read_local_alerts(config.wazuh_alerts_path, ip=ip, text=text, limit=limit)
+        except Exception as fallback_exc:
+            return {
+                "source": "unavailable",
+                "alerts": [],
+                "error": f"Indexer query failed: {exc}; local alerts fallback failed: {fallback_exc}",
+            }
         return {
             "source": "local_alerts_json",
             "alerts": local_alerts,
