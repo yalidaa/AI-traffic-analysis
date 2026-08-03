@@ -4,7 +4,7 @@
 
 ## 当前定位
 
-当前文档以 `productization` 分支为准，说明 MineShark 的 Agent、RAG 和 Wazuh 接入方式。真实产品化部署由 MineShark Sensor 生成版本化 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件，再由 Wazuh Manager、Filebeat 和 Wazuh Indexer 保存；Console 和 Agent 从已配置的数据源读取这些事件。
+当前文档以 `main` 系统开发主线为准，说明 MineShark 的 Agent、RAG 和 Wazuh 接入方式。真实产品化部署由 MineShark Sensor 生成版本化 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件，再由 Wazuh Manager、Filebeat 和 Wazuh Indexer 保存；Console 和 Agent 从已配置的数据源读取这些事件。
 
 Windows 主机主要用于代码开发、提交和同步；实际运行、RAG 索引构建、Wazuh/Zeek/Suricata 日志读取和 Agent 报告生成应在 Linux VM 中完成。
 
@@ -43,7 +43,7 @@ DASHSCOPE_API_KEY=...
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
 WAZUH_VERIFY_SSL=false
-ZEEK_LOG_DIR=/opt/zeek/spool/zeek
+ZEEK_LOG_DIR=/opt/zeek/logs/current
 SURICATA_EVE_PATH=/var/log/suricata/eve.json
 WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
 MINESHARK_AI_ALERT_SOURCE=wazuh

@@ -147,6 +147,50 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("rotate_seconds = 5", sensor_config)
         self.assertIn("ring_files = 60", sensor_config)
 
+    def test_wsl_lab_installs_pinned_network_evidence_sources(self):
+        guest_installer = (DEPLOY / "wsl-lab" / "install-guest.sh").read_text(encoding="utf-8")
+        sensor_config = (DEPLOY / "wsl-lab" / "sensor.toml").read_text(encoding="utf-8")
+        runbook = (ROOT / "docs" / "wsl_lab_deployment.md").read_text(encoding="utf-8")
+
+        self.assertIn('ZEEK_SERIES="${ZEEK_SERIES:-8.0}"', guest_installer)
+        self.assertIn('ZEEK_EXPECTED_VERSION="${ZEEK_EXPECTED_VERSION:-8.0.9}"', guest_installer)
+        self.assertIn("download.opensuse.org/repositories/security:/zeek/xUbuntu_22.04", guest_installer)
+        self.assertIn('"zeek-${ZEEK_SERIES}"', guest_installer)
+        self.assertIn("${zeek_binary} --version", guest_installer)
+        self.assertIn("/opt/zeek/logs/current", guest_installer)
+        self.assertIn('SURICATA_PACKAGE_VERSION="${SURICATA_PACKAGE_VERSION:-1:6.0.4-3}"', guest_installer)
+        self.assertIn("suricata=${SURICATA_PACKAGE_VERSION}", guest_installer)
+        self.assertIn("suricata --build-info", guest_installer)
+        self.assertIn("suricata-update", guest_installer)
+        self.assertIn("-o /etc/suricata/rules", guest_installer)
+        self.assertIn("suricata -T -c /etc/suricata/suricata.yaml", guest_installer)
+        self.assertIn("ZEEK_LOG_DIR=/opt/zeek/logs/current", guest_installer)
+        self.assertIn("SURICATA_EVE_PATH=/var/log/suricata/eve.json", guest_installer)
+        self.assertIn('zeek_log_dir = "/opt/zeek/logs/current"', sensor_config)
+        self.assertIn('suricata_eve_path = "/var/log/suricata/eve.json"', sensor_config)
+        self.assertIn("Zeek 8.0.9", runbook)
+        self.assertIn("Suricata 6.0.4", runbook)
+
+    def test_wsl_lab_waits_for_indexer_after_final_service_start(self):
+        guest_installer = (DEPLOY / "wsl-lab" / "install-guest.sh").read_text(encoding="utf-8")
+
+        final_service_start = guest_installer.rfind(
+            "systemctl enable --now wazuh-indexer wazuh-manager filebeat wazuh-dashboard nginx mineshark-sensor mineshark-console"
+        )
+        final_service_restart = guest_installer.rfind(
+            "systemctl restart wazuh-manager mineshark-sensor mineshark-console"
+        )
+        final_indexer_wait = guest_installer.rfind("wait_for_indexer")
+
+        self.assertGreater(final_service_start, -1)
+        self.assertGreater(final_service_restart, final_service_start)
+        self.assertGreater(final_indexer_wait, final_service_restart)
+        self.assertIn("systemctl is-active --quiet wazuh-indexer", guest_installer)
+        self.assertIn(
+            'curl --fail --silent --insecure --user "admin:${admin_password}" https://127.0.0.1:9200/',
+            guest_installer,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

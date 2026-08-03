@@ -8,6 +8,17 @@ from mineshark.config import RuntimeConfig
 
 
 class RuntimeConfigTests(unittest.TestCase):
+    def test_uses_current_lab_evidence_path_defaults(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / "defaults.env"
+            env_file.write_text("MINESHARK_AI_ALERT_SOURCE=local\n", encoding="utf-8")
+
+            with mock.patch.dict(os.environ, {}, clear=True):
+                config = RuntimeConfig.from_env(str(env_file))
+
+            self.assertEqual(config.zeek_log_dir, Path("/opt/zeek/logs/current").resolve())
+            self.assertEqual(config.suricata_eve_path, Path("/var/log/suricata/eve.json").resolve())
+
     def test_parses_wazuh_alert_source_sensor_allowlist_and_cors_origins(self):
         with tempfile.TemporaryDirectory() as tmp:
             env_file = Path(tmp) / "deploy.env"

@@ -23,11 +23,11 @@ Windows WLAN
        -> MineShark Console / Nginx -> https://localhost:8012
 ```
 
-`dumpcap` 只负责抓包；Sensor 才负责五元组流聚合、前 20 包特征、Transformer 评分、`ai_alert`、`evidence_snapshot` 和心跳事件。模型不读取 Zeek/Wazuh 日志；Zeek/Suricata 当前未安装，只能作为后续旁证。
+`dumpcap` 只负责抓包；Sensor 才负责五元组流聚合、前 20 包特征、Transformer 评分、`ai_alert`、`evidence_snapshot` 和心跳事件。模型不读取 Zeek/Wazuh 日志；Zeek 8.0.9 与 Suricata 6.0.4 作为旁证源安装并由 Sensor 只读查询。
 
 ### 2. 环境和边界
 
-- 工作区：`<项目根目录>`，分支 `productization`。
+- 工作区：`<项目根目录>`，分支 `main`。
 - 本目录是 Git worktree；元数据位于主仓库的 worktree 管理目录。禁止修改、清理或切换主仓库工作区。
 - 新 WSL：`MineShark-Lab`，Ubuntu 22.04，安装目录 `<WSL发行版目录>\MineShark-Lab`。
 - 旧 WSL `Wazuh` 保持停止，不升级、不改配置、不参与本次运行。
@@ -38,7 +38,7 @@ Windows WLAN
 
 ### 3. 已完成且已验证
 
-- 已创建独立 Ubuntu 22.04 WSL，安装 Wazuh 4.14.7 Manager、Indexer、Dashboard、Filebeat、MineShark Sensor、Console 和 Nginx。
+- 已创建独立 Ubuntu 22.04 WSL，安装 Wazuh 4.14.7 Manager、Indexer、Dashboard、Filebeat、Zeek 8.0.9、Suricata 6.0.4、MineShark Sensor、Console 和 Nginx。
 - 已恢复并校验模型 `deep-mineshark-legacy-20260304`，SHA-256：`9c40a0145309fcc124583ed1d6c7c82b469e7e39948d9f6da57a2ed5e03cd9c1`。
 - Python 3.10 / Ubuntu 22.04 兼容已修复：Sensor 在没有内置 `tomllib` 时回退使用 `tomli`。
 - Windows dumpcap 已验证持续产生真实 WLAN PCAPNG；Sensor 已真实处理过大量流和产生大量 `ai_alert` / `evidence_snapshot`。
@@ -70,7 +70,7 @@ Windows WLAN
 
 旧卡点的根因是 Wazuh 规则字段路径和父规则分流不匹配：规则现在使用实际 JSON 解码路径 `data.schema_version`、`data.event_type`、`data.risk_level`，并同时挂在默认 Suricata JSON 父规则 `86600` 下。规则已经部署到 `MineShark-Lab:/var/ossec/etc/rules/mineshark_rules.xml`，`wazuh-analysisd -t` 通过。
 
-运行边界仍需诚实展示：本机 Wazuh 告警文件读取因权限返回 `Permission denied`，Zeek、Suricata 和 RAG 当前未安装或无索引；Console 因此把这些来源显示为未连接，不能把模型信号写成已确认攻击，也不能伪造旁证。
+运行边界仍需诚实展示：本机 Wazuh 告警文件读取因权限返回 `Permission denied`，Zeek/Suricata 只有在采集或 PCAP 回放后才会产生旁证日志，RAG 仍可能无索引；Console 必须按实际数据源状态显示，不能把模型信号写成已确认攻击，也不能伪造旁证。
 
 **计划任务的可靠性仍是未完成项。** `MineShark-Lab-Start` 之前的记录为 `Last Result: 1`；本轮手动 `Start-ScheduledTask` 后任务进入 `Running`，约 13 秒后仍保持运行，说明当前任务命令可以启动 WSL 常驻实例，但尚未完成重新登录或重启后的持久化验收。
 
@@ -78,7 +78,7 @@ Windows WLAN
 
 1. 在 Windows 重新登录或重启后验证 `MineShark-Lab-Start` 是否自动保持 `Running`，并确认 Wazuh、Indexer、Sensor、Nginx 都重新为 `active`；若再次出现 `Last Result: 1`，再单独修复任务计划配置。
 2. 将 Wazuh 本地告警文件读取改为受控、只读的权限方案，或继续以 Indexer 作为部署模式唯一告警源；不要为了让状态变绿而放宽证书、密码或目录权限。
-3. 安装并接入 Zeek/Suricata 后，给案件固化版本化 evidence bundle；当前证据覆盖为 0/5 是真实空状态。
+3. 为 Zeek/Suricata 增加稳定的实时采集或 PCAP 回放调度，并给案件固化版本化 evidence bundle；当前证据覆盖仍以现场日志为准。
 4. 对旧模型的大量普通流量高风险输出做单独的校准/误报研究，不能把本轮链路验收当成模型效果验收。
 5. 任何进一步改动完成前，重新执行后端测试、Ruff、前端构建和浏览器 Console 验收。
 
@@ -93,7 +93,7 @@ Windows WLAN
 7. Nginx 必须能遍历 `/etc/mineshark`，目录使用 `0755`；否则即使凭据正确也会得到 `500`。本机回环免认证是为桌面查看，不代表可以暴露给局域网。
 8. 不要打印、提交或写入 Console/Wazuh 密码、证书私钥。凭据仅存放在 WSL 受限文件中。
 9. 当前旧模型会把大量普通 WLAN 流量打成高风险。它只能证明采集和推理链路，不是攻击确认，也绝不能写成模型效果/误报率已达标。
-10. Zeek/Suricata 当前未安装；证据快照为空是诚实状态，不得伪造旁证。
+10. Zeek/Suricata 已安装不等于已有证据；证据快照为空仍是诚实状态，不得伪造旁证。
 
 ## 历史归档（仅供追溯，不作为当前状态）
 
@@ -126,7 +126,7 @@ Windows WLAN
 ## 2. 工作区与硬边界
 
 - 活动仓库：`<项目根目录>`
-- 当前分支：`productization`
+- 当前分支：`main`
 - 严禁修改、切换或清理主仓库工作区。
   - 该 training 工作区可能包含其他未提交改动。
 - 当前 MineShark 工作树也是脏的，所有已有改动都应视为用户资产；不要使用 `git reset --hard`、`git clean`、`git checkout -- <path>` 或批量删除。
@@ -272,7 +272,7 @@ Codex 会话工作目录下已有设计和验证材料：
 
 ## 8. 新会话的推荐工作方式
 
-1. 先确认目录为 `<项目根目录>`，分支为 `productization`，并确认没有进入主仓库工作区。
+1. 先确认目录为 `<项目根目录>`，分支为 `main`，并确认没有进入主仓库工作区。
 2. 先读本文件和 `docs/productization_roadmap.md`，再读取 `git status`；保留已有未提交改动。
 3. 新功能必须严格 TDD：先在 `tests/test_web_console.py` 或对应测试中写失败测试，运行并确认失败，再做最小实现。
 4. 前端改动完成后，先构建，再让 FastAPI 托管最新 `dist`，最后运行浏览器截图/交互检查。
@@ -308,7 +308,7 @@ rtk node <Codex会话输出目录>\e-mineshark-product-productization-e-trafficd
 
 ## 10. 当前未提交状态
 
-截至本记录写入时，`productization` 分支有未提交内容。已修改或新增的关键文件包括：
+历史记录显示，截至当时写入时，`productization` 分支有未提交内容。已修改或新增的关键文件包括：
 
 - `src/mineshark/config.py`
 - `src/mineshark/web/api.py`
