@@ -31,7 +31,7 @@ https://github.com/yalidaa/AI-traffic-analysis.git
 2026-08-03 当前远程核验结果：
 
 ```text
-main     f45d72e0344291e3f68f89309a4af2cb41c72c73
+main     19288873d243ab1d86987a6615bccebbc43fe8f9
 training b4305f029dfef680a2a8e758907298c604af5069
 ```
 
@@ -39,6 +39,7 @@ training b4305f029dfef680a2a8e758907298c604af5069
 
 - 旧远程 `demo_jianli` 已删除。
 - 旧远程 `productization` 已删除。
+- 临时分支 `codex/install-zeek-suricata` 的提交已合并到 `main`，远程和本地引用均已删除；相关提交仍可通过 `main` 历史追溯。
 - 产品化代码已经进入 `main`，不应再恢复或继续使用远程 `productization`。
 - 当前本机工作区已切回 `main`，创建本文前工作树干净并与 `origin/main` 一致。
 - 本文 `handoff.md` 已纳入 `main` 的交接资料；新会话接手后仍应先用 `git status --short --branch` 确认工作树，再核对远程状态。
@@ -174,7 +175,7 @@ rtk git log -1 --oneline origin/training
 预期远程结果是：
 
 ```text
-origin/main     f45d72e
+origin/main     1928887
 origin/training b4305f0
 ```
 
