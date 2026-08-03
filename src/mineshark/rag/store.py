@@ -103,6 +103,7 @@ def build_faiss_index(records: List[KnowledgeRecord], embedding_client, output_d
     metadata = {
         "dimension": int(embeddings.shape[1]),
         "count": len(records),
+        "embedding_provider": getattr(embedding_client, "provider", embedding_client.__class__.__name__),
         "records": [record.to_metadata() for record in records],
     }
     (output_dir / METADATA_FILE).write_text(

@@ -71,8 +71,6 @@ def run_preflight(
             "severity": "ok" if config.deepseek_base_url else "error",
         },
         "dashscope_api_key": _secret_status(config.dashscope_api_key),
-        "ai_alerts_path": _path_status(config.mineshark_ai_alerts_path),
-        "wazuh_alerts_path": _path_status(config.wazuh_alerts_path),
         "zeek_log_dir": _path_status(config.zeek_log_dir, expect_dir=True),
         "suricata_eve_path": _path_status(config.suricata_eve_path),
         "rag_index": {
@@ -81,6 +79,18 @@ def run_preflight(
             "metadata_json": (config.rag_index_dir / METADATA_FILE).exists(),
         },
     }
+    if config.mineshark_ai_alert_source == "wazuh":
+        configured = bool(config.wazuh_indexer_url and config.mineshark_allowed_sensor_ids)
+        checks["wazuh_indexer_config"] = {
+            "provider": "wazuh_indexer",
+            "indexer_url": config.wazuh_indexer_url,
+            "allowed_sensor_ids": list(config.mineshark_allowed_sensor_ids),
+            "ok": configured,
+            "severity": "ok" if configured else "error",
+        }
+    else:
+        checks["ai_alerts_path"] = _path_status(config.mineshark_ai_alerts_path)
+        checks["wazuh_alerts_path"] = _path_status(config.wazuh_alerts_path)
     checks["rag_index"]["ok"] = bool(checks["rag_index"]["knowledge_faiss"] and checks["rag_index"]["metadata_json"])
     checks["rag_index"]["severity"] = "ok" if checks["rag_index"]["ok"] else "warning"
 

@@ -8,6 +8,8 @@ Windows WLAN + Npcap
   -> E:\MineShark-runtime\spool\*.pcapng
   -> Ubuntu 22.04 WSL: MineShark-Lab
        -> MineShark Sensor
+       -> Zeek 8.0.9 /var/lib/mineshark/zeek-logs/current
+       -> Suricata 6.0.4 /var/log/suricata/eve.json
        -> Wazuh Manager / Indexer / Dashboard
        -> MineShark Console
 ```
@@ -30,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy\wsl-lab\install-host.ps1 -Capt
 wsl -d MineShark-Lab -- bash /mnt/e/MineShark-product/deploy/wsl-lab/repair-guest.sh
 ```
 
-脚本会校验 Ubuntu 22.04、模型 SHA-256、Python 3.10 的 `tomli` 兼容性、Wazuh XML、Nginx 和 Sensor 配置。
+脚本会校验 Ubuntu 22.04、Wazuh 4.14.7、Zeek 8.0.9、Suricata 6.0.4、模型 SHA-256、Python 3.10 的 `tomli` 兼容性、Wazuh XML、Nginx 和 Sensor 配置。
 
 ## 日常操作
 
@@ -39,10 +41,11 @@ wsl -d MineShark-Lab -- bash /mnt/e/MineShark-product/deploy/wsl-lab/repair-gues
 - 查看健康：`wsl -d MineShark-Lab -- cat /var/lib/mineshark/status.json`。
 - 启停真实 WLAN 抓包：任务 `MineShark-WLANCapture`。停止抓包不会停止 Sensor、Wazuh 或控制台。
 - 抓包目录：`E:\MineShark-runtime\spool`；snaplen 为 128 字节、5 秒轮转、最多 60 个文件。
+- 旁证日志：Zeek `8.0.9` 写入 `/var/lib/mineshark/zeek-logs/current/`；Suricata `6.0.4` 写入 `/var/log/suricata/eve.json`。
 
 ## 证据边界
 
 - 事件包含模型版本、哈希、阈值、概率和完整特征快照；不保存明文载荷。
-- 当前 WSL 第一阶段没有安装 Zeek/Suricata，证据快照会明确显示旁证源为空，不得把空旁证写成已确认攻击。
+- 当前 WSL 安装器会安装 Zeek/Suricata，但旁证日志只有在对应的实时采集或 PCAP 回放流程运行后才会出现；空日志仍必须显示为空，不得把空旁证写成已确认攻击。
 - 普通 WLAN 流量被旧模型判为高风险，只能证明实时采集和推理链路工作，不能作为模型误报率合格或真实恶意流量确认。
 - 要完成 SPAN/TAP、100 Mbps、丢包率 0.1% 和 p95 60 秒验收，仍需独立 Ubuntu 传感器和隔离网络流量发生器。

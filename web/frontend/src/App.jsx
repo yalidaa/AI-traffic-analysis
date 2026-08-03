@@ -198,15 +198,20 @@ function evidenceRows(bundle = {}, healthSources = {}) {
     const error = errors.find((item) => item.startsWith(`${source.key}:`));
     const missing = missingSources.has(source.key);
     const health = healthSources[healthKeys[source.key]];
+    const indexer = source.key === "wazuh" && ["wazuh", "wazuh_indexer"].includes(health?.provider);
     const indexMissing = source.key === "rag" && health && (!health.knowledge_faiss || !health.metadata_json);
     const reason = indexMissing
       ? `索引缺失：${health.path || "RAG 索引目录"}`
       : error && source.key === "wazuh"
-        ? "Indexer 未连接，已回退本地日志；当前无匹配记录。"
+        ? indexer
+          ? `Indexer 查询异常：${error}`
+          : "Indexer 未连接，已回退本地日志；当前无匹配记录。"
+        : indexer && health?.ok === false
+          ? `Indexer 未连接：${health.error || "当前没有可用查询结果。"}`
         : error
           ? error
           : health?.exists === false
-            ? `路径不存在：${health.path}`
+            ? `路径不存在：${health.path || "当前来源"}`
             : missing
               ? "当前查询未返回匹配事件或索引结果。"
               : count > 0
@@ -215,7 +220,7 @@ function evidenceRows(bundle = {}, healthSources = {}) {
     return {
       ...source,
       count,
-      status: count > 0 ? "ready" : error && !indexMissing ? "error" : "missing",
+      status: count > 0 ? "ready" : error && !indexMissing || indexer && health?.ok === false ? "error" : "missing",
       reason
     };
   });
@@ -926,6 +931,11 @@ function AlertsPage({
   const linkedCase = selectedAlert ? cases.find((item) => item.alert_key === alertKey(selectedAlert)) : null;
   const bundle = evidenceAppliesToAlert(evidence?.evidence_bundle, selectedAlert) ? evidence.evidence_bundle : null;
   const coverage = evidenceCoverage(bundle);
+  const providerLabel = alertsMeta.provider === "wazuh"
+    ? "Wazuh Indexer"
+    : alertsMeta.provider === "local"
+      ? "本地 AI 告警文件"
+      : alertsMeta.source_file || "未识别来源";
 
   return (
     <div className="view-grid alerts-grid">
@@ -933,7 +943,7 @@ function AlertsPage({
         eyebrow="研判 / 告警队列"
         title="AI 告警工作台"
         detail="模型信号按当前筛选范围进入队列；告警详情保存原始快照，并可进入证据与案件流程。"
-        meta={<><span>当前筛选范围：{Object.values(filters).filter(Boolean).length ? "已应用条件" : "默认阈值"}</span><span>数据来源：MineShark AI 告警文件</span><span>命中：{alertsMeta.matched || 0} / {alertsMeta.total_records || 0}</span></>}
+        meta={<><span>当前筛选范围：{Object.values(filters).filter(Boolean).length ? "已应用条件" : "默认阈值"}</span><span>数据来源：{providerLabel}</span><span>命中：{alertsMeta.matched || 0} / {alertsMeta.total_records || 0}</span></>}
       />
       <WorkspaceError error={error} />
       <section className="panel filter-panel wide">

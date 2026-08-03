@@ -1,6 +1,6 @@
 # MineShark 产品化平台
 
-MineShark 是面向安全分析人员的本地可部署加密流量智能研判验证平台。当前代码基线为 `main`，目标是把真实 WLAN 流量、模型信号、Wazuh 告警、证据快照、研判案件和中文报告组织成可复核的工作闭环。
+MineShark 是面向安全分析人员的本地可部署加密流量智能研判验证平台。当前代码基线为 `main` 系统开发主线，目标是把真实 WLAN 流量、模型信号、Wazuh 告警、证据快照、研判案件和中文报告组织成可复核的工作闭环。
 
 系统提供两个主要入口：
 
@@ -21,7 +21,7 @@ Windows WLAN
   -> Agent / RAG 证据聚合与中文报告
 ```
 
-Sensor 负责五元组流聚合、前 20 个包的特征提取、Transformer 评分，以及生成 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件。模型不读取 Zeek 或 Wazuh 日志；Zeek、Suricata 可以作为后续旁证接入。当前 WSL 首阶段未安装 Zeek/Suricata，旁证为空时页面会如实显示。
+Sensor 负责五元组流聚合、前 20 个包的特征提取、Transformer 评分，以及生成 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件。模型不读取 Zeek 或 Wazuh 日志；当前 WSL 安装器固定安装 Zeek 8.0.9 和 Suricata 6.0.4 作为后续旁证。旁证日志为空时页面会如实显示。
 
 当前已验证的是单机真实 WLAN 抓包到控制台的闭环，不等同于交换机 SPAN/TAP、100 Mbps 持续压测或模型效果验收。旧模型在普通 WLAN 流量上可能产生大量高风险信号，这只能证明采集和推理链路工作，不能证明流量已经确认恶意。
 
@@ -107,7 +107,7 @@ DASHSCOPE_API_KEY=...
 WAZUH_BASE_URL=https://localhost:55000
 WAZUH_INDEXER_URL=https://localhost:9200
 WAZUH_VERIFY_SSL=false
-ZEEK_LOG_DIR=/opt/zeek/spool/zeek
+ZEEK_LOG_DIR=/var/lib/mineshark/zeek-logs/current
 SURICATA_EVE_PATH=/var/log/suricata/eve.json
 WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
 MINESHARK_AI_ALERTS_PATH=/var/log/ai_alerts.json

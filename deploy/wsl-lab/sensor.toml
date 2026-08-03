@@ -25,5 +25,5 @@ status_path = "/var/lib/mineshark/status.json"
 state_path = "/var/lib/mineshark/sensor.sqlite3"
 
 [evidence]
-zeek_log_dir = "/var/empty/mineshark/zeek"
-suricata_eve_path = "/var/empty/mineshark/suricata/eve.json"
+zeek_log_dir = "/var/lib/mineshark/zeek-logs/current"
+suricata_eve_path = "/var/log/suricata/eve.json"

@@ -1,6 +1,6 @@
 # MineShark Console
 
-MineShark Console 是 `productization` 分支的安全研判控制台。它用 FastAPI 暴露只读 API、案件接口和 Agent 任务入口，用 React/Vite 构建前端静态文件。开发模式由 FastAPI 直接托管；WSL 产品化部署由 Nginx 提供 HTTPS 入口。
+MineShark Console 是 `main` 系统开发主线的安全研判控制台。它用 FastAPI 暴露只读 API、案件接口和 Agent 任务入口，用 React/Vite 构建前端静态文件。开发模式由 FastAPI 直接托管；WSL 产品化部署由 Nginx 提供 HTTPS 入口。
 
 ## 安装
 

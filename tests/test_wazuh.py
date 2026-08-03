@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -11,7 +12,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from mineshark.config import RuntimeConfig
-from mineshark.integrations.wazuh import WazuhIndexerClient, WazuhServerClient, read_local_alerts
+from mineshark.integrations.wazuh import (
+    WazuhIndexerClient,
+    WazuhServerClient,
+    query_alerts_with_fallback,
+    read_local_alerts,
+)
 
 
 def make_config(tmp_path):
@@ -123,6 +129,16 @@ class WazuhClientTests(unittest.TestCase):
             result = read_local_alerts(alerts, ip="10.0.0.1")
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0]["rule"]["id"], "1")
+
+    @mock.patch("mineshark.integrations.wazuh.read_local_alerts", side_effect=PermissionError("permission denied"))
+    @mock.patch("mineshark.integrations.wazuh.WazuhIndexerClient.search_alerts", side_effect=ConnectionError("offline"))
+    def test_indexer_fallback_reports_local_permission_error_without_raising(self, _search, _local):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = query_alerts_with_fallback(make_config(Path(tmp)))
+
+            self.assertEqual(result["alerts"], [])
+            self.assertIn("Indexer query failed", result["error"])
+            self.assertIn("local alerts fallback failed", result["error"])
 
 
 if __name__ == "__main__":

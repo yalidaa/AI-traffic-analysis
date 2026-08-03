@@ -72,6 +72,11 @@ def build_bundle(output: Path, model_path: Path, *, python: str) -> Path:
         shutil.copy2(MANIFEST, staging / "models" / "model-manifest.json")
         (staging / "configs").mkdir()
         shutil.copy2(ROOT / "configs" / "sensor" / "sensor.toml", staging / "configs" / "sensor.toml")
+        (staging / "configs" / "reporting").mkdir()
+        shutil.copy2(
+            ROOT / "configs" / "reporting" / "security_playbook.jsonl",
+            staging / "configs" / "reporting" / "security_playbook.jsonl",
+        )
         copy_tree(FRONTEND_DIST, staging / "web" / "frontend" / "dist")
         for directory in ("systemd", "wazuh", "nginx", "logrotate"):
             copy_tree(ROOT / "deploy" / directory, staging / directory)
