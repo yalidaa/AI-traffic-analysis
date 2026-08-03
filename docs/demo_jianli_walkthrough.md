@@ -1,8 +1,10 @@
-# demo_jianli 分支项目讲解与复现手册
+# 历史资料：demo_jianli 分支项目讲解与复现手册
 
-这份文档的目标是把 `demo_jianli` 分支讲清楚：它怎么一键运行、每一步在检查什么、数据从哪里来、Agent 调用了哪些工具、报告应该怎么看，以及面试时应该怎么讲。
+> 本文只用于追溯早期演示环境，不是 `productization` 当前部署手册。文中的旧分支、旧定时服务、旧路径和旧规则编号可能与当前真实 Sensor/Wazuh/Console 链路不同。当前部署请先阅读 `docs/project_record.md`、`docs/wsl_lab_deployment.md` 和 `docs/real_sensor_deployment.md`。
 
-当前分支定位：`demo_jianli` 是专门面向 Linux/Wazuh 实验环境的安全研判分支。它不替换已有的 `mineshark-ai.timer`，而是以旁路方式读取现有 AI 告警、Wazuh、Zeek、Suricata 和 RAG 知识库，最后生成中文研判报告。
+这份文档记录 `demo_jianli` 分支的历史演示方式：它怎么一键运行、每一步检查什么、数据从哪里来、Agent 调用了哪些工具，以及当时如何讲解项目。
+
+历史分支定位：`demo_jianli` 面向 Linux/Wazuh 实验环境的安全研判演示。它以旁路方式读取当时已有的 AI 告警、Wazuh、Zeek、Suricata 和 RAG 知识库，最后生成中文研判报告。
 
 ## 1. 一句话讲清楚这个项目
 

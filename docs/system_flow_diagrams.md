@@ -1,6 +1,8 @@
-# MineShark 系统流程图
+# 历史资料：MineShark 系统流程图
 
-这份文档用于把 `demo_jianli` 分支从黑盒拆开。建议阅读顺序：
+> 本文拆解的是 `demo_jianli` 历史演示链路，图中的旧 timer、旧文件路径和规则编号不能代表当前 `productization` 实际部署。当前真实链路请阅读 `docs/project_record.md` 和 `docs/wsl_lab_deployment.md`。
+
+这份文档用于把历史 `demo_jianli` 分支从黑盒拆开。建议阅读顺序：
 
 1. 先看“图 1：系统总览图”，理解 WSL Wazuh、MineShark AI、Wazuh、RAG、Agent 之间怎么连。
 2. 再看“图 2：代码文件职责图”，理解每个关键文件在项目里做什么。
@@ -261,7 +263,7 @@ sequenceDiagram
   "uid": "lab_replay_mineshark_20260527063525",
   "src_ip": "104.18.27.120",
   "src_port": 443,
-  "dst_ip": "192.168.30.152",
+  "dst_ip": "192.0.2.10",
   "dst_port": 57458,
   "proto": "tcp"
 }

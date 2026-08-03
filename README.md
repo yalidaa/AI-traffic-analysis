@@ -1,58 +1,68 @@
-# MineShark Console / AI Traffic Analysis
+# MineShark 产品化平台
 
-`demo_jianli` 分支是 MineShark 面向 Wazuh 实验环境的最新演示分支。它把已有的加密流量 AI 告警、Wazuh 告警、Zeek/Suricata 日志和 RAG 安全知识库串起来，提供两种入口：
+MineShark 是面向安全分析人员的本地可部署加密流量智能研判验证平台。当前代码基线为 `productization`，目标是把真实 WLAN 流量、模型信号、Wazuh 告警、证据快照、研判案件和中文报告组织成可复核的工作闭环。
 
-- **MineShark Console**：深色 SOC 风格 Web 控制台，用于展示风险态势、AI 告警、证据拓扑、报告中心和任务历史。
-- **LangGraph Agent CLI**：旁路读取现有日志和告警，调用 DeepSeek 生成中文安全研判报告。
+系统提供两个主要入口：
 
-本分支不替换现有实时检测服务，不写回 Wazuh，不做自动封禁或自动处置。模型概率只作为风险线索，最终结论需要结合 Wazuh、Zeek、Suricata、RAG 和人工复核。
+- **MineShark Console**：展示风险总览、AI 告警、证据拓扑、研判案件、报告和任务历史。
+- **Agent / RAG 命令行**：读取已配置的数据源，聚合证据并生成带有事实边界说明的中文研判报告。
 
-## Current Demo Flow
+系统只做旁路读取、证据关联和人工研判，不自动封禁、不自动删除、不写回 Wazuh。模型概率只是风险线索，不能单独作为攻击事实。
+
+## 当前产品化链路
 
 ```text
-MineShark live AI engine
-  -> /var/log/ai_alerts.json
-  -> Wazuh rule / alerts
-  -> MineShark Agent evidence aggregation
-  -> DeepSeek / rule fallback report
-  -> MineShark Console
+Windows WLAN
+  -> dumpcap 环形抓包（PCAPNG）
+  -> WSL Ubuntu 22.04: MineShark Sensor
+  -> /var/log/mineshark/events.jsonl
+  -> Wazuh Manager -> Filebeat -> Wazuh Indexer
+  -> MineShark Console（Nginx HTTPS）
+  -> Agent / RAG 证据聚合与中文报告
 ```
 
-关键输出：
+Sensor 负责五元组流聚合、前 20 个包的特征提取、Transformer 评分，以及生成 `ai_alert`、`evidence_snapshot` 和 `sensor_heartbeat` 事件。模型不读取 Zeek 或 Wazuh 日志；Zeek、Suricata 可以作为后续旁证接入。当前 WSL 首阶段未安装 Zeek/Suricata，旁证为空时页面会如实显示。
+
+当前已验证的是单机真实 WLAN 抓包到控制台的闭环，不等同于交换机 SPAN/TAP、100 Mbps 持续压测或模型效果验收。旧模型在普通 WLAN 流量上可能产生大量高风险信号，这只能证明采集和推理链路工作，不能证明流量已经确认恶意。
+
+关键输出位置：
 
 ```text
+/var/log/mineshark/events.jsonl
 outputs/reports/agent_audit_report.json
 outputs/reports/agent_audit_report.md
 outputs/console/mineshark_console.sqlite3
 ```
 
-## Project Layout
+## 项目结构
 
 ```text
 .
-├── configs/                  # 环境、RAG 知识库和报告配置
-├── docs/                     # 分支讲解、Console、Wazuh/Agent 文档
+├── configs/                  # 传感器、环境、RAG 知识库和报告配置
+├── deploy/                   # WSL、Sensor、Console、Wazuh 和 Nginx 部署文件
+├── docs/                     # 产品化、部署、验收和历史资料
 ├── scripts/
-│   ├── agent/                # Agent 演示与运行脚本
+│   ├── agent/                # Agent 研判和 WSL 运行脚本
 │   ├── data/                 # 数据准备脚本
+│   ├── deployment/           # 离线包、模型一致性和部署验收脚本
 │   ├── rag/                  # RAG 索引构建脚本
-│   ├── report/               # 旧版离线报告入口
 │   └── train/                # 模型训练入口
 ├── src/mineshark/
-│   ├── agent/                # LangGraph Agent、证据聚合、质量检查
-│   ├── integrations/         # Wazuh API / 本地告警回退
-│   ├── rag/                  # FAISS RAG 存储和 DashScope embedding
-│   ├── sensors/              # AI 告警、Zeek、Suricata 读取
+│   ├── agent/                # Agent、证据聚合、预检查和质量检查
+│   ├── integrations/         # Wazuh Server / Indexer 接入
+│   ├── rag/                  # FAISS 存储和 DashScope 向量检索
+│   ├── sensor/               # 抓包、流聚合、模型推理和事件输出
+│   ├── sensors/              # AI 告警、Zeek、Suricata 数据读取
 │   ├── training/             # Transformer 训练
-│   └── web/                  # FastAPI MineShark Console 后端
-├── tests/                    # 单元测试和 demo fixture
-├── web/frontend/             # React/Vite MineShark Console 前端
+│   └── web/                  # FastAPI Console 后端和案件存储
+├── tests/                    # 单元测试、接口测试和脱敏夹具
+├── web/frontend/             # React/Vite Console 前端
 ├── datasets/                 # 本地数据集，Git 忽略
 ├── checkpoints/              # 本地模型权重，Git 忽略
 └── outputs/                  # 报告、RAG、Console 运行产物，Git 忽略
 ```
 
-## Install
+## 安装
 
 基础 Agent / RAG / Wazuh 旁路研判：
 
@@ -81,7 +91,7 @@ Windows 训练机可参考 Conda 环境快照：
 configs/env/traffic_env.yaml
 ```
 
-## Configuration
+## 配置
 
 复制 `.env.example` 为 `.env`，在 Wazuh VM 中填写真实凭据和路径：
 
@@ -89,7 +99,7 @@ configs/env/traffic_env.yaml
 cp .env.example .env
 ```
 
-关键变量：
+关键变量示例：
 
 ```text
 DEEPSEEK_API_KEY=...
@@ -103,9 +113,11 @@ WAZUH_ALERTS_PATH=/var/ossec/logs/alerts/alerts.json
 MINESHARK_AI_ALERTS_PATH=/var/log/ai_alerts.json
 ```
 
+真实部署模式还需要设置 `MINESHARK_AI_ALERT_SOURCE=wazuh`、允许的 `MINESHARK_ALLOWED_SENSOR_IDS`、Wazuh Indexer 只读账号和 `MINESHARK_FRONTEND_DIST`。真实密码、令牌、证书和生产日志只保留在目标环境，不提交到仓库。
+
 ## MineShark Console
 
-Console 是本分支最新的前端入口。它由 FastAPI 提供只读 API 和任务接口，由 React/Vite 构建静态前端，并由 FastAPI 在同一端口托管。
+Console 是当前产品化前端入口。它由 FastAPI 提供只读 API、案件接口和 Agent 任务接口，由 React/Vite 构建静态前端。
 
 前端构建只在开发/部署阶段需要 Node：
 
@@ -116,22 +128,30 @@ npm run build
 cd ../..
 ```
 
-启动控制台：
+开发调试时可直接启动控制台：
 
 ```bash
-mineshark-console --host 0.0.0.0 --port 8008
+mineshark-console --host 127.0.0.1 --port 8008
 ```
 
-访问：
+开发访问地址：
 
 ```text
-http://<vm-ip>:8008
+http://127.0.0.1:8008
 ```
+
+WSL 产品化部署由 systemd 在 `127.0.0.1:8000` 运行后端，再由 Nginx 提供本机 HTTPS 入口：
+
+```text
+https://localhost:8012
+```
+
+安装器会生成本机证书和受限访问凭据；不要直接把 Uvicorn 端口暴露到局域网。
 
 Console 支持：
 
 - 总览：AI 告警数、高危线索、数据源健康、最近任务和报告状态。
-- AI 告警：按 IP、UID、Alert ID、阈值筛选 `/var/log/ai_alerts.json`。
+- AI 告警：按 IP、UID、Alert ID、阈值筛选已配置的数据源；部署模式默认查询 Wazuh Indexer。
 - 证据拓扑：展示 MineShark AI、Wazuh、Zeek、Suricata、RAG 和报告之间的关系。
 - 报告中心：查看 Agent 生成的 Markdown / JSON 报告快照。
 - 任务历史：查看 `preflight`、`evidence-only`、`agent-report` 的执行状态。
@@ -152,7 +172,7 @@ agent-report
 docs/mineshark_console.md
 ```
 
-## LangGraph Agent CLI
+## Agent 与 RAG 命令行
 
 构建 RAG 索引：
 
@@ -189,12 +209,12 @@ python scripts/agent/run_agent_audit.py --env-file .env --evidence-only --uid Cd
 
 ```text
 docs/agent_rag_wazuh.md
-docs/demo_jianli_walkthrough.md
+docs/project_record.md
 ```
 
-## Training And Data Preparation
+## 训练与数据准备
 
-训练入口仍然保留，但不是 `demo_jianli` 分支的主要演示路径。
+训练入口仍然保留，但训练不是当前真实部署闭环的验收替代品。
 
 训练模型：
 
@@ -230,7 +250,7 @@ python .\scripts\data\prepare_experiment_data.py
 
 安全说明：数据准备脚本不会自动清空已有非空输出目录。如需清理实验目录，请人工确认后手动处理。
 
-## Tests And Formatting
+## 测试与格式检查
 
 同步开发、Web 和机器学习依赖：
 
@@ -255,7 +275,7 @@ cd web/frontend
 npm run build
 ```
 
-## Git Policy
+## Git 提交范围
 
 仓库跟踪源码、脚本、配置和文档；不跟踪以下本地运行产物：
 
